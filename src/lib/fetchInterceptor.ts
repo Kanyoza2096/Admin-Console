@@ -1,9 +1,7 @@
 import { useStore, type HttpLog } from '../store/useStore';
 
-// Backup original fetch function
 const originalFetch = window.fetch;
 
-// Intercept all fetch requests globally
 window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
   const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : String(input));
   const method = init?.method || 'GET';
@@ -11,7 +9,9 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
   const id = `http_${timestamp}_${Math.floor(Math.random() * 10000)}`;
   const page = window.location.pathname;
 
-  const restEndpoint = useStore.getState().restEndpoint || '';
+  const state = useStore.getState();
+  const restEndpoint = state.restEndpoint || '';
+  const masterToken = state.masterToken || localStorage.getItem('master_token') || '';
   const cleanBase = restEndpoint.replace(/\/+$/, '');
   
   // Check if it is a request targeting our REST backend API
@@ -25,6 +25,20 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
     return originalFetch.apply(this, [input, init]);
   }
 
+  // Inject auth header automatically
+  const headers = new Headers(init?.headers);
+  if (masterToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${masterToken}`);
+  }
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const modifiedInit: RequestInit = {
+    ...init,
+    headers,
+  };
+
   const log: HttpLog = {
     id,
     timestamp,
@@ -34,7 +48,7 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
   };
 
   try {
-    const response = await originalFetch.apply(this, [input, init]);
+    const response = await originalFetch.apply(this, [input, modifiedInit]);
     
     log.status = response.status;
     log.statusText = response.statusText;
