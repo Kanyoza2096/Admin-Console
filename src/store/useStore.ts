@@ -180,12 +180,13 @@ const INITIAL_HEALTH: SystemHealth[] = [];
 export const useStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
   login: () => {
-  // Fix corrupted restEndpoint in localStorage (remove duplicate /api/v1)
+  // Ensure restEndpoint always has /api/v1
   const stored = localStorage.getItem('rest_endpoint');
-  if (stored && stored.includes('/api/v1')) {
-    localStorage.setItem('rest_endpoint', stored.replace(/\/api\/v1\/?$/, ''));
+  if (stored && !stored.includes('/api/v1')) {
+    localStorage.setItem('rest_endpoint', stored.replace(/\/$/, '') + '/api/v1');
   }
   set({ isAuthenticated: true });
+},
 },
   logout: () => {
     get().disconnectSocket();
