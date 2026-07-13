@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { BrainCircuit, Zap, Save, RotateCcw, MessageCircle, Send, Bot, Sparkles, ChevronDown } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fetchWithTimeout } from '../lib/utils';
 
 export default function AIBrain() {
   const { restEndpoint, masterToken, setPersonaMood, personaMood } = useStore();

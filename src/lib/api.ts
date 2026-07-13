@@ -8,6 +8,8 @@
  * catch and surface the error via isError / error states.
  */
 
+import { fetchWithTimeout } from './utils';
+
 export interface ApiConfig {
   restEndpoint: string;
   masterToken: string;
@@ -22,7 +24,7 @@ async function request<T>(
 ): Promise<T> {
   const base = config.restEndpoint.replace(/\/+$/, '');
   const url = `${base}${path}`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

@@ -8,6 +8,15 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+function safePathname(url: string | undefined): string {
+  if (!url) return '';
+  try {
+    return url.startsWith('http') ? new URL(url).pathname : url;
+  } catch {
+    return url;
+  }
+}
+
 export default function SystemDiagnostics() {
   const navigate = useNavigate();
   const { httpLogs, clearHttpLogs, fetchInitialData, restEndpoint, masterToken } = useStore();
@@ -41,7 +50,7 @@ export default function SystemDiagnostics() {
                 <span className="font-bold">API Failure Detected:</span>{' '}
                 {has401 ? (
                   <span>
-                    401 Unauthorized on {lastError?.method} <code className="bg-brand-danger/20 px-1 rounded">{new URL(lastError?.url || '').pathname}</code>. Check your Master Token in settings.
+                    401 Unauthorized on {lastError?.method} <code className="bg-brand-danger/20 px-1 rounded">{safePathname(lastError?.url)}</code>. Check your Master Token in settings.
                   </span>
                 ) : (
                   <span>
@@ -231,7 +240,7 @@ export default function SystemDiagnostics() {
                 {httpLogs.map((log) => {
                   const isFailed = log.error || (log.status && log.status >= 400);
                   const isPending = log.status === undefined;
-                  const cleanUrl = log.url.startsWith('http') ? new URL(log.url).pathname : log.url;
+                  const cleanUrl = safePathname(log.url);
 
                   return (
                     <div

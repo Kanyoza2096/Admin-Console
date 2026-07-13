@@ -5,7 +5,7 @@ import {
   ToggleLeft, AlertTriangle, ShieldOff, Unlock, RefreshCw, CheckCircle,
   Shield, Pause, Activity, Trash2, Wrench, Clock, Zap, History
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fetchWithTimeout } from '../lib/utils';
 
 function formatLabel(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

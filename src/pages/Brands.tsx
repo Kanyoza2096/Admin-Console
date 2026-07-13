@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { Palette, Plus, Trash2, Edit2, AlertTriangle, X, RefreshCw, CheckCircle, Bot } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fetchWithTimeout } from '../lib/utils';
 
 interface Brand {
   id: string;

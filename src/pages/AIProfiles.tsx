@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { Bot, Plus, Trash2, Edit2, AlertTriangle, X, RefreshCw, CheckCircle } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fetchWithTimeout } from '../lib/utils';
 
 interface AIProfile {
   id: string;
