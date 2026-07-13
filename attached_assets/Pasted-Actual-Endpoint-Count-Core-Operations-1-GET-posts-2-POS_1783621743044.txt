@@ -1,0 +1,134 @@
+Actual Endpoint Count
+
+Core Operations
+
+1. GET /posts
+2. POST /posts
+3. DELETE /posts/:id
+4. GET /messages
+5. POST /messages/reply
+6. GET /messages/:sender_id
+7. GET /analytics
+8. GET /analytics/performance
+9. GET /analytics/posts-performance
+10. GET /analytics/token-usage
+11. GET /analytics/engagement-heatmap
+
+Bot Control
+
+12. GET /bot/status
+13. POST /bot/post
+14. POST /bot/news
+15. POST /bot/engage
+
+Guardian
+
+16. GET /guardian/status
+17. GET /guardian/issues
+18. POST /guardian/scan
+
+Schedule
+
+19. GET /schedule
+20. PUT /schedule
+
+AI Config & Persona
+
+21. GET /ai/config
+22. PUT /ai/config
+23. GET /ai/persona
+24. PUT /ai/persona
+25. POST /persona/reset
+26. GET /persona
+27. PUT /persona
+28. POST /ai/chat
+
+Workspaces CRUD
+
+29. POST /workspaces
+30. GET /workspaces
+31. GET /workspaces/:id
+32. PUT /workspaces/:id
+33. DELETE /workspaces/:id
+
+Brands CRUD
+
+34. POST /workspaces/:id/brands
+35. GET /workspaces/:id/brands
+36. GET /brands/:id
+37. PUT /brands/:id
+38. DELETE /brands/:id
+
+AI Profiles CRUD
+
+39. POST /workspaces/:id/ai-profiles
+40. GET /workspaces/:id/ai-profiles
+41. PUT /ai-profiles/:id
+42. DELETE /ai-profiles/:id
+
+Social Accounts
+
+43. POST /workspaces/:id/social-accounts
+44. GET /workspaces/:id/social-accounts
+45. PUT /social-accounts/:id
+46. DELETE /social-accounts/:id
+47. POST /social-accounts/:id/health-check
+
+Knowledge Base
+
+48. POST /brands/:id/knowledge
+49. GET /brands/:id/knowledge
+50. DELETE /knowledge/:id
+51. POST /brands/:id/knowledge/search
+52. GET /knowledge
+53. POST /knowledge
+
+API Keys
+
+54. POST /keys/generate
+55. GET /keys
+56. DELETE /keys/:id
+
+Metrics
+
+57. GET /metrics
+58. GET /metrics/public
+59. GET /metrics/resources
+60. GET /metrics/query
+
+System
+
+61. GET /system/health
+62. GET /system/connectors
+63. GET /status
+64. GET /health/deep
+
+Features & Rate Limits
+
+65. GET /features
+66. POST /features/toggle
+67. GET /rate-limits
+68. POST /rate-limits/unblock
+
+Workflows
+
+69. GET /workflow
+70. POST /workflow/run
+71. GET /workflow/history
+72. GET /workflow/status
+73. POST /workflow/pause
+74. POST /workflow/resume
+75. POST /workflow/trigger
+
+Other
+
+76. POST /scan
+77. GET /scan
+78. GET /audit-logs
+79. GET /notifications
+80. POST /notifications/:id/read
+81. GET /integrations
+82. GET /tenants
+83. POST /tenants/switch
+
+83 endpoints.

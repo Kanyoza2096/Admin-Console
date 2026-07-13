@@ -1,0 +1,333 @@
+You are building the frontend control layer for the Kanyoza Systems AI Platform — a production multi-tenant SaaS that automates social media content via AI. The backend is a Python Flask API at /api/v1/* with 60+ endpoints. The frontend is React + TypeScript + Tailwind CSS v4 + Framer Motion + Zustand + Recharts.
+
+The backend endpoints ALL exist and return real data. The frontend currently only READS data (Dashboard, Monitoring, Health). It needs full CRUD control over every backend resource.
+
+I need you to build the following pages. Each page must:
+- Use the existing Zustand store at '../store/useStore' for restEndpoint, masterToken
+- Use the existing API client at '../services/api' (import functions from there)
+- Use Tailwind brand-* classes: brand-bg (#0A0E17), brand-surface (#141A2E), brand-border (#1E293B), brand-primary (#4F46E5), brand-text (#F1F5F9), brand-text-muted (#64748B), brand-elevated (#1C2541), brand-success (#10B981), brand-danger (#EF4444), brand-warning (#F59E0B), brand-accent (#06B6D4)
+- Use shadow-glow-primary, shadow-glow-success, etc. from the theme
+- Use font-mono for data, uppercase tracking-widest for labels
+- Use Framer Motion for staggered fade-in animations (initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }})
+- Show skeleton loading states while fetching
+- Show empty states ("No posts yet", "No brands configured") when data is empty
+- Show error states with retry button when API calls fail
+- Be fully responsive (mobile bottom nav compatible)
+- NEVER use mock data — all data from API calls
+- Include search, filter, and pagination where applicable
+
+---
+
+## PAGE 1: Posts Studio (src/pages/Posts.tsx)
+
+The primary content management page.
+
+LAYOUT:
+- Header: "Content Studio" with FileText icon, post count badge
+- Tab bar: "Published" | "Drafts" | "Scheduled"
+- Grid of post cards (2-col on desktop, 1-col on mobile)
+- Each card shows: thumbnail, title, platform badge (facebook/twitter/linkedin), engagement count, timestamp, delete button
+- Floating action button: "New Post" with Plus icon
+
+NEW POST MODAL:
+- Topic input (text)
+- Category selector (dropdown)
+- Caption textarea
+- Platform selector (checkboxes: Facebook, Twitter, LinkedIn)
+- Schedule toggle: "Publish Now" or "Schedule for later"
+- DateTime picker (if scheduled)
+- Preview card showing how it will look
+- Submit button with loading spinner
+
+API CALLS:
+- GET /api/v1/posts?page=1&per_page=20&state=published — fetch published
+- GET /api/v1/posts?state=draft — fetch drafts
+- POST /api/v1/posts — create new (body: { caption, topic, category, state: "publish" | "draft" })
+- DELETE /api/v1/posts/:id — delete post
+- POST /api/v1/bot/post — force immediate post
+
+STATES:
+- Loading: 6 skeleton cards with pulse animation
+- Empty: "No posts yet. Create your first post to start engaging your audience."
+- Error: "Failed to load posts" with Retry button
+
+---
+
+## PAGE 2: Scheduler Control (src/pages/Scheduler.tsx)
+
+Control the automated posting engine.
+
+LAYOUT:
+- Header: "Scheduler" with Calendar icon
+- Status card: "Engine Running" (green) or "Paused" (yellow) with Play/Pause toggle button
+- Schedule grid: Hours of day (0-23 UTC) as toggleable slots, highlighted if active
+- Current config display: posting hours list, interval settings
+- Force actions section: "Post Now" button, "Post News" button, "Engage" button
+- Recent workflow history (last 20 runs) with status, topic, platform, duration
+
+API CALLS:
+- GET /api/v1/schedule — current schedule config
+- PUT /api/v1/schedule — update schedule (body: { content_hours_utc: [9,12,15,18], enabled: true })
+- POST /api/v1/workflow/pause — pause scheduler
+- POST /api/v1/workflow/resume — resume scheduler
+- POST /api/v1/bot/post — force post now
+- POST /api/v1/bot/news — force news post
+- POST /api/v1/bot/engage — force engagement
+- GET /api/v1/workflow/history — recent workflow runs
+- GET /api/v1/bot/status — scheduler status
+
+STATES:
+- Loading: skeleton cards
+- Paused state: yellow warning banner "Scheduler is paused. Automated posts will not be published."
+- Running state: green pulse dot "Engine running — next post at 15:00 UTC"
+
+---
+
+## PAGE 3: AI Brain (src/pages/AIEngine.tsx or AIBrain.tsx)
+
+Control the AI persona, model, and behavior.
+
+LAYOUT:
+- Header: "AI Brain" with BrainCircuit icon
+- Model selector: dropdown (gemini-2.5-flash, gemini-2.5-pro, etc.)
+- Provider indicator: "Google Gemini" with configured/not-configured badge
+- Temperature sliders: Chat Temperature (0.0-2.0), Post Temperature (0.0-2.0)
+- Safety level: Low / Medium / High radio buttons
+- Personality sliders (0-100):
+  - Tone (Formal ↔ Casual)
+  - Aggression (Passive ↔ Assertive)
+  - Humor (Serious ↔ Playful)
+- Mood selector: Analytical / Professional / Creative / Urgent (color-coded cards)
+- System prompt override textarea
+- Test chat section: send message, see AI response
+- Reset to defaults button
+- Save button with success animation
+
+API CALLS:
+- GET /api/v1/ai/config — current config
+- PUT /api/v1/ai/config — update config (body: { model, chat_temperature, post_temperature, safety_level, provider })
+- GET /api/v1/ai/persona — current persona
+- PUT /api/v1/ai/persona — update persona (body: { tone, aggression, humor, system_prompt })
+- POST /api/v1/persona/reset — reset to defaults
+- POST /api/v1/ai/chat — test chat (body: { message: "Hello" })
+
+STATES:
+- Loading: skeleton sliders
+- Success: green "Persona updated" toast
+- Reset confirmation dialog
+
+---
+
+## PAGE 4: Workspaces Manager (src/pages/Tenants.tsx or Workspaces.tsx)
+
+Multi-tenant management for the platform.
+
+LAYOUT:
+- Header: "Workspaces" with Building2 icon, count badge
+- Grid of workspace cards
+- Each card: name, slug, plan (free/pro/business), status (active/inactive), member count, created date
+- Click card → expand to show brands, members, settings
+- Create workspace button → modal
+
+CREATE/EDIT WORKSPACE MODAL:
+- Name input
+- Slug input (auto-generated from name)
+- Plan selector (free/pro/business)
+- Owner email
+- Save/Cancel buttons
+
+API CALLS:
+- GET /api/v1/workspaces — list all
+- POST /api/v1/workspaces — create (body: { name, slug, plan, owner_email })
+- GET /api/v1/workspaces/:id — single workspace
+- PUT /api/v1/workspaces/:id — update
+- DELETE /api/v1/workspaces/:id — delete (with confirmation dialog)
+
+---
+
+## PAGE 5: Brands Manager (src/pages/Brands.tsx)
+
+Manage brands under each workspace.
+
+LAYOUT:
+- Workspace selector dropdown at top
+- Grid of brand cards
+- Each card: logo, name, tone, hashtags, language, status
+- Create brand button
+
+CREATE/EDIT BRAND MODAL:
+- Name, slug, logo URL
+- Tone selector
+- Hashtags input (comma-separated)
+- Language dropdown
+- Audience description textarea
+- Posting schedule (hours picker)
+- AI Profile selector (link to existing profile)
+- Save/Cancel
+
+API CALLS:
+- GET /api/v1/workspaces/:id/brands — list by workspace
+- POST /api/v1/workspaces/:id/brands — create
+- GET /api/v1/brands/:id — single
+- PUT /api/v1/brands/:id — update
+- DELETE /api/v1/brands/:id — delete
+
+---
+
+## PAGE 6: Social Accounts (src/pages/Integrations.tsx — extend existing)
+
+Connect and manage social media accounts.
+
+LAYOUT:
+- Platform cards: Facebook, Twitter, LinkedIn, Instagram, WhatsApp, Telegram
+- Each shows: connected status, account name, health status, last checked
+- Connect button → modal with platform-specific fields
+
+CONNECT MODAL (per platform):
+- Facebook: Page ID, Page Access Token, Verify Token, App Secret
+- Twitter: API Key, API Secret, Access Token, Refresh Token
+- LinkedIn: Access Token, Person URN
+- WhatsApp: Token, Phone ID
+- Test connection button before saving
+- Save button
+
+API CALLS:
+- GET /api/v1/workspaces/:id/social-accounts — list
+- POST /api/v1/workspaces/:id/social-accounts — create
+- PUT /api/v1/social-accounts/:id — update
+- DELETE /api/v1/social-accounts/:id — delete
+- POST /api/v1/social-accounts/:id/health-check — test connection
+
+---
+
+## PAGE 7: AI Profiles (src/pages/AIProfiles.tsx)
+
+Manage reusable AI personality profiles.
+
+LAYOUT:
+- Grid of profile cards
+- Each card: name, tone, expertise, complexity, emoji level
+- Create profile button
+
+CREATE/EDIT MODAL:
+- Name, expertise fields
+- Tone, style, CTA style selectors
+- Emoji level: None / Low / Medium / High
+- Complexity: Beginner / Intermediate / Advanced / Expert
+- Writing style textarea
+- System prompt override textarea
+- Save/Cancel
+
+API CALLS:
+- GET /api/v1/workspaces/:id/ai-profiles — list
+- POST /api/v1/workspaces/:id/ai-profiles — create
+- PUT /api/v1/ai-profiles/:id — update
+- DELETE /api/v1/ai-profiles/:id — delete
+
+---
+
+## PAGE 8: Knowledge Base (src/pages/KnowledgeBase.tsx — extend existing)
+
+Manage brand knowledge for AI context.
+
+LAYOUT:
+- Brand selector dropdown
+- Document list with search bar
+- Each document: title, content preview, doc_type, tags, created date
+- Add document button
+
+ADD DOCUMENT MODAL:
+- Title input
+- Content textarea (large)
+- Document type selector (text, faq, product_info, brand_guidelines)
+- Tags input
+- Save button
+
+API CALLS:
+- GET /api/v1/brands/:id/knowledge — list
+- POST /api/v1/brands/:id/knowledge — create (body: { content, doc_type, tags })
+- POST /api/v1/brands/:id/knowledge/search — search (body: { query, top_k })
+- DELETE /api/v1/knowledge/:id — delete
+
+---
+
+## PAGE 9: Security Center (src/pages/Security.tsx — extend existing)
+
+Security scanning and audit management.
+
+LAYOUT:
+- Guardian status card: last scan time, total findings, critical/high/medium/low counts
+- Scan button with loading animation
+- Issues list with severity filter, repo filter, sort
+- Auto-fix toggle
+- Audit logs section with action/user/resource/status filter
+
+API CALLS:
+- GET /api/v1/guardian/status — scan status
+- GET /api/v1/guardian/issues?severity=critical,high — filtered issues
+- POST /api/v1/guardian/scan — trigger scan
+- GET /api/v1/audit-logs?limit=50 — audit trail
+
+---
+
+## PAGE 10: API Keys (src/pages/APIManager.tsx — extend existing)
+
+Manage API tokens for programmatic access.
+
+LAYOUT:
+- Keys list: label, prefix (masked), created date, last used, status
+- Generate button → shows token ONCE with copy button and warning
+- Revoke button with confirmation
+
+API CALLS:
+- POST /api/v1/keys/generate — create (body: { label })
+- GET /api/v1/keys — list
+- DELETE /api/v1/keys/:id — revoke
+
+---
+
+## PAGE 11: Feature Toggles (src/pages/Features.tsx)
+
+Toggle platform features on/off.
+
+LAYOUT:
+- Toggle cards: Auto Reply, Auto Post, Auto Comment Reply, Cross Engage
+- Each card: feature name, description, on/off toggle switch, status badge
+
+API CALLS:
+- GET /api/v1/features — current state
+- POST /api/v1/features/toggle — toggle (body: { feature: "auto_post", enabled: true })
+
+---
+
+## PAGE 12: Messenger (src/pages/Messenger.tsx — extend existing)
+
+View and reply to Facebook Messenger conversations.
+
+LAYOUT:
+- Conversation list (left sidebar on desktop, full width on mobile)
+- Message thread view (right side)
+- Reply box at bottom with Send button
+- Sender name, avatar, sentiment badge, timestamp
+
+API CALLS:
+- GET /api/v1/messages?limit=50 — recent conversations
+- GET /api/v1/messages/:sender_id — single conversation
+- POST /api/v1/messages/reply — send reply (body: { recipient_id, text })
+
+---
+
+## GLOBAL REQUIREMENTS
+
+1. All pages must use the existing Layout component (sidebar + header)
+2. All API calls go through the auth header: Authorization: Bearer ${masterToken}
+3. All pages handle: loading (skeleton), empty (friendly message), error (retry button), success (data display)
+4. All mutations show toast notifications: success (green), error (red)
+5. Delete operations show confirmation dialog
+6. Forms validate required fields before submission
+7. Dates formatted as relative time ("2 hours ago", "3 days ago")
+8. Numbers formatted with locale (1,234,567 not 1234567)
+9. All tables/grids have hover states
+10. Mobile responsive: single column, larger touch targets, simplified layouts
+
+Build all 12 pages. Complete code for each file. No placeholders.

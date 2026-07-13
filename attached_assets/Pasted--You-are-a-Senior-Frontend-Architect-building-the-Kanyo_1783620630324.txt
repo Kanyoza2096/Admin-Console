@@ -1,0 +1,139 @@
+```
+You are a Senior Frontend Architect building the Kanyoza Systems AI Platform — a production multi-tenant SaaS for AI-powered social media automation.
+
+The backend is COMPLETE and FULLY OPERATIONAL. All 60+ API endpoints return real data. The backend has:
+- Python 3.14 Flask API at /api/v1/*
+- Supabase database with workspaces, brands, ai_profiles, social_accounts, knowledge_entries tables
+- Upstash Redis for caching and rate limiting
+- Socket.IO for real-time dashboard
+- 10-stage AI content pipeline
+- Facebook, Twitter, LinkedIn, Instagram, WhatsApp, Telegram connectors
+- Scheduler, Guardian security scanner, audit logs
+
+The frontend is React + TypeScript + Tailwind CSS v4 + Framer Motion + Zustand + Recharts + React Router v6. It currently only READS data (Dashboard, Monitoring, Health). It needs to fully CONTROL the backend.
+
+I need you to audit the existing frontend and build every missing feature to achieve 100% backend control. Use ONLY the existing Zustand store at '../store/useStore' and the API client pattern already established.
+
+BRAND DESIGN SYSTEM (already configured):
+- Colors: brand-bg (#0A0E17), brand-surface (#141A2E), brand-border (#1E293B), brand-primary (#4F46E5), brand-text (#F1F5F9), brand-text-muted (#64748B), brand-elevated (#1C2541), brand-success (#10B981), brand-danger (#EF4444), brand-warning (#F59E0B), brand-accent (#06B6D4)
+- Glow shadows: shadow-glow-primary, shadow-glow-success, shadow-glow-danger, shadow-glow-warning
+- Fonts: Inter (sans) + JetBrains Mono (mono)
+- Dark/Light mode support via .light class on document root
+- All components use cn() from '../lib/utils' for class merging
+- Icons from 'lucide-react'
+- Framer Motion for animations: motion.div, AnimatePresence, layout, initial/animate/exit
+- Mobile responsive with bottom nav bar (visible on lg:hidden)
+
+EXISTING PAGES (do NOT modify unless specified):
+- Dashboard.tsx — Real data, merged mission control layout with SystemTopology
+- Monitoring.tsx — Real data, SSE log stream, resource gauges, health matrix
+- Login.tsx — Supabase auth, hexagon background, production-ready
+- Settings.tsx — Connection params only, no service keys
+- Layout.tsx — Sidebar, header, workspace switcher, tenant switcher
+- CommandPalette.tsx — Ctrl+K search, keyboard navigation
+
+EXISTING STORE (useStore at '../store/useStore'):
+Access these: restEndpoint, masterToken, socketConnected, healthMatrix, stats, messages, recentPosts, guardianAlerts, latencyHistory, personaMood, theme, toggleTheme, currentTenant, setCurrentTenant, isUsingLiveBackendData, pushLatency, fetchInitialData
+DO NOT use triggerNotification — it does not exist in the store. Use a local toast state instead.
+
+API CALL PATTERN (all authenticated endpoints use this):
+```typescript
+const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${masterToken}` };
+const res = await fetch(`${restEndpoint.replace(/\/+$/, '')}/path`, { headers });
+const data = await res.json();
+```
+
+DATA SHAPE: Backend wraps responses in { ok: true, workspaces: [...], social_accounts: [...] } etc. Always extract the nested array.
+
+---
+
+TASK: Build/Refine These Pages
+
+1. Posts Studio (src/pages/Posts.tsx)
+
+Complete content management. Tabs: Published | Drafts | Scheduled. Post cards with thumbnail, title, platform badge, engagement, timestamp, delete button. New Post modal with topic, caption, platform checkboxes, schedule toggle, datetime picker. API: GET /posts?page=&per_page=&state=, POST /posts, DELETE /posts/:id, POST /bot/post.
+
+2. Scheduler Control (src/pages/Scheduler.tsx)
+
+Engine status (Running/Paused) with Play/Pause toggle. Hour grid (0-23 UTC) with active slot highlighting. Force actions: Post Now, Post News, Engage. Workflow history (last 20). API: GET /schedule, PUT /schedule, POST /workflow/pause, POST /workflow/resume, POST /bot/post, POST /bot/news, POST /bot/engage, GET /workflow/history, GET /bot/status.
+
+3. AI Brain (src/pages/AIBrain.tsx or AIEngine.tsx)
+
+Model selector dropdown. Temperature sliders (0.0-2.0). Safety level radio buttons. Personality sliders (Tone, Aggression, Humor: 0-100). Mood selector cards (Analytical/Professional/Creative/Urgent). System prompt textarea. Test chat section. Reset defaults. API: GET /ai/config, PUT /ai/config, GET /ai/persona, PUT /ai/persona, POST /persona/reset, POST /ai/chat.
+
+4. Workspaces Manager (src/pages/Workspaces.tsx or Tenants.tsx)
+
+Grid of workspace cards with name, slug, plan, status, member count. Create/Edit modal. Delete with confirmation. API: GET /workspaces, POST /workspaces, PUT /workspaces/:id, DELETE /workspaces/:id.
+
+5. Brands Manager (src/pages/Brands.tsx)
+
+Workspace selector dropdown. Grid of brand cards with logo, name, tone, language. Create/Edit modal with tone, hashtags, language, audience description, AI profile selector. API: GET /workspaces/:id/brands, POST /workspaces/:id/brands, PUT /brands/:id, DELETE /brands/:id.
+
+6. Social Accounts (REFINE existing src/pages/SocialAccounts.tsx)
+
+Remove ALL mock data (defaultMockAccounts, defaultWorkspaces, simulationMode). Use ONLY real API. Workspace selector from GET /workspaces. Account cards from GET /workspaces/:id/social-accounts. Connect/Edit modal with platform-specific credential fields. Test connection via POST /social-accounts/:id/health-check. Toggle enable/disable. Delete with confirmation. Toast notifications using local state (not triggerNotification).
+
+7. AI Profiles (src/pages/AIProfiles.tsx)
+
+Workspace selector. Profile cards with name, tone, expertise, complexity, emoji level. Create/Edit modal. API: GET /workspaces/:id/ai-profiles, POST /workspaces/:id/ai-profiles, PUT /ai-profiles/:id, DELETE /ai-profiles/:id.
+
+8. Knowledge Base (src/pages/KnowledgeBase.tsx)
+
+Brand selector. Document list with search bar. Add document modal with title, content, type selector, tags. API: GET /brands/:id/knowledge, POST /brands/:id/knowledge, POST /brands/:id/knowledge/search, DELETE /knowledge/:id.
+
+9. Security Center (src/pages/Security.tsx)
+
+Guardian status card with scan button. Issues list with severity/repo filter. Audit logs with action/user filter. API: GET /guardian/status, GET /guardian/issues, POST /guardian/scan, GET /audit-logs.
+
+10. API Keys (src/pages/APIManager.tsx)
+
+Keys list with label, prefix (masked), created date, status. Generate button (shows token ONCE). Revoke with confirmation. API: POST /keys/generate, GET /keys, DELETE /keys/:id.
+
+11. Feature Toggles (src/pages/Features.tsx)
+
+Toggle cards for Auto Reply, Auto Post, Auto Comment Reply, Cross Engage. API: GET /features, POST /features/toggle.
+
+12. Messenger (src/pages/Messenger.tsx)
+
+Conversation list + message thread view. Reply box with Send button. API: GET /messages?limit=50, GET /messages/:sender_id, POST /messages/reply.
+
+---
+
+UNIVERSAL REQUIREMENTS
+
+EVERY page must handle these states:
+
+1. LOADING: Skeleton cards with pulse animation (bg-brand-elevated animate-pulse rounded-xl)
+2. EMPTY: Friendly message with icon, title, description, and CTA button
+3. ERROR: Red alert with error message and Retry button
+4. SUCCESS: Real data displayed immediately when API responds
+
+EVERY mutation (create/update/delete) must:
+
+1. Show loading state on the button during the API call
+2. Show success toast (green, auto-dismiss 4 seconds)
+3. Show error toast (red, auto-dismiss 6 seconds)
+4. Refresh data after successful mutation
+5. DELETE shows confirmation dialog with account name
+
+STYLING:
+
+· Cards: bg-brand-surface border border-brand-border rounded-2xl hover:border-brand-primary/30 transition-all
+· Inputs: bg-brand-elevated border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20
+· Buttons: rounded-xl uppercase tracking-wider font-bold text-xs
+· Modals: fixed inset-0 z-50, backdrop bg-black/60 backdrop-blur-sm, card bg-brand-surface border border-brand-border rounded-2xl shadow-2xl
+· Toast: fixed top-20 right-6 z-50, auto-dismiss, animated entrance
+· Tables: bg-brand-surface border border-brand-border, headers bg-brand-elevated uppercase text-[10px] tracking-widest font-mono
+
+DO NOT:
+
+· Use any mock data, simulation mode, or hardcoded fallbacks
+· Use triggerNotification (doesn't exist in the store)
+· Use defaultWorkspaces or defaultMockAccounts
+· Create new store files — use the existing useStore
+· Hardcode workspace IDs — always fetch from API
+· Skip loading/empty/error states
+
+Build ALL 12 pages. Complete TypeScript JSX. Ready to copy-paste into a Vite + React + Tailwind v4 project.
+
+```

@@ -1,0 +1,2 @@
+- [Kanyoza API type contracts](kanyoza-api-types.md) — ConnectorInfo/MetricsPayload/IntegrationEntry shapes differ from naive assumptions; check before use.
+- [Kanyoza page wiring rules](kanyoza-page-rules.md) — every query needs retry:1+staleTime, every mutation onError must surface, no silent failures.

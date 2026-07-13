@@ -1,0 +1,199 @@
+
+Kanyoza Systems API Map v10
+
+```
+BASE: https://kanyoza-systems-bot.onrender.com/api/v1
+AUTH: Authorization: Bearer <MASTER_API_TOKEN>
+```
+
+---
+
+📊 DASHBOARD & MONITORING (✅ Frontend done)
+
+Method Endpoint Frontend
+GET /status ✅ Settings page
+GET /health/deep ✅ Dashboard, Monitoring
+GET /dashboard/live ✅ useStore polling
+GET /metrics ✅ Monitoring
+GET /metrics/public ✅ Public
+GET /metrics/resources ✅ Monitoring gauges
+GET /metrics/query ✅ Prometheus page
+GET /logs/stream ✅ Monitoring SSE
+GET /logs/recent ✅ Monitoring fallback
+GET /logs/stats ✅ Monitoring
+DELETE /logs/clear ❌
+
+---
+
+📝 CONTENT STUDIO (❌ Needs Posts.tsx)
+
+Method Endpoint Frontend
+GET /posts?page=&per_page=&state= ❌
+POST /posts ❌
+DELETE /posts/:id ❌
+
+---
+
+💬 MESSENGER (❌ Needs Messenger.tsx)
+
+Method Endpoint Frontend
+GET /messages?limit= ❌
+GET /messages/:sender_id ❌
+POST /messages/reply ❌
+
+---
+
+📈 ANALYTICS (❌ Needs Analytics.tsx)
+
+Method Endpoint Frontend
+GET /analytics ❌
+GET /analytics/performance ❌
+GET /analytics/posts-performance ❌
+GET /analytics/token-usage ❌
+GET /analytics/engagement-heatmap ❌
+
+---
+
+⚙️ SCHEDULER (❌ Needs Scheduler.tsx)
+
+Method Endpoint Frontend
+GET /schedule ❌
+PUT /schedule ❌
+GET /bot/status ❌
+POST /bot/post ❌
+POST /bot/news ❌
+POST /bot/engage ❌
+
+---
+
+🤖 AI ENGINE (❌ Needs AIBrain.tsx)
+
+Method Endpoint Frontend
+GET /ai/config ❌
+PUT /ai/config ❌
+GET /ai/persona ❌
+PUT /ai/persona ❌
+GET /persona ❌
+PUT /persona ❌
+POST /persona/reset ❌
+POST /ai/chat ❌
+
+---
+
+🏢 WORKSPACES (❌ Needs Workspaces.tsx)
+
+Method Endpoint Frontend
+GET /workspaces ⚠️ Layout.tsx only
+POST /workspaces ❌
+GET /workspaces/:id ❌
+PUT /workspaces/:id ❌
+DELETE /workspaces/:id ❌
+
+---
+
+🏷️ BRANDS (❌ Needs Brands.tsx)
+
+Method Endpoint Frontend
+GET /workspaces/:id/brands ❌
+POST /workspaces/:id/brands ❌
+GET /brands/:id ❌
+PUT /brands/:id ❌
+DELETE /brands/:id ❌
+
+---
+
+🎭 AI PROFILES (❌ Needs AIProfiles.tsx)
+
+Method Endpoint Frontend
+GET /workspaces/:id/ai-profiles ❌
+POST /workspaces/:id/ai-profiles ❌
+PUT /ai-profiles/:id ❌
+DELETE /ai-profiles/:id ❌
+
+---
+
+🔗 SOCIAL ACCOUNTS (⚠️ File exists, needs wiring)
+
+Method Endpoint Frontend
+GET /workspaces/:id/social-accounts ⚠️ File ready
+POST /workspaces/:id/social-accounts ⚠️ File ready
+PUT /social-accounts/:id ⚠️ File ready
+DELETE /social-accounts/:id ⚠️ File ready
+POST /social-accounts/:id/health-check ⚠️ File ready
+
+---
+
+📚 KNOWLEDGE BASE (❌ Needs KnowledgeBase.tsx)
+
+Method Endpoint Frontend
+GET /knowledge ❌
+POST /knowledge ❌
+GET /brands/:id/knowledge ❌
+POST /brands/:id/knowledge ❌
+POST /brands/:id/knowledge/search ❌
+DELETE /knowledge/:id ❌
+
+---
+
+🔑 API KEYS (❌ Needs APIManager.tsx)
+
+Method Endpoint Frontend
+GET /keys ❌
+POST /keys/generate ❌
+DELETE /keys/:id ❌
+
+---
+
+🛡️ SECURITY (❌ Needs Security.tsx)
+
+Method Endpoint Frontend
+GET /guardian/status ❌
+GET /guardian/issues ❌
+POST /guardian/scan ❌
+POST /scan ❌
+GET /scan ❌
+GET /audit-logs ❌
+
+---
+
+🎚️ FEATURES & RATE LIMITS (❌ Needs Features.tsx)
+
+Method Endpoint Frontend
+GET /features ❌
+POST /features/toggle ❌
+GET /rate-limits ❌
+POST /rate-limits/unblock ❌
+
+---
+
+🔄 WORKFLOWS (❌ Needs Workflows.tsx)
+
+Method Endpoint Frontend
+GET /workflow ❌
+POST /workflow/run ❌
+GET /workflow/history ❌
+GET /workflow/status ❌
+POST /workflow/pause ❌
+POST /workflow/resume ❌
+POST /workflow/trigger ❌
+
+---
+
+🔌 INTEGRATIONS (✅ Done)
+
+Method Endpoint Frontend
+GET /integrations ✅
+GET /system/connectors ✅
+GET /system/health ✅
+
+---
+
+🔔 OTHER
+
+Method Endpoint Frontend
+GET /notifications ❌
+POST /notifications/:id/read ❌
+GET /tenants ❌
+POST /tenants/switch ❌
+
+---
