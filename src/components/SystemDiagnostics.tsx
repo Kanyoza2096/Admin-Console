@@ -236,7 +236,7 @@ export default function SystemDiagnostics() {
               </div>
 
               {/* Logs List */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              <div className="flex-1 overflow-y-auto p-6 space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {httpLogs.map((log) => {
                   const isFailed = log.error || (log.status && log.status >= 400);
                   const isPending = log.status === undefined;
