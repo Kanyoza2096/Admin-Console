@@ -398,7 +398,7 @@ export default function SocialAccounts() {
                       </div>
                       <p className="text-brand-text-muted text-[11px]">{verifyResult.summary}</p>
                       <div className="space-y-1 pt-1">
-                        {Object.entries(verifyResult.checks).map(([key, check]) => (
+                        {Object.entries(verifyResult.checks ?? {}).map(([key, check]) => (
                           <div key={key} className="flex items-start gap-2">
                             <span className={cn("mt-0.5", check.ok ? 'text-brand-success' : 'text-brand-danger')}>{check.ok ? '✓' : '✗'}</span>
                             <span className="text-brand-text-muted">{check.detail}</span>

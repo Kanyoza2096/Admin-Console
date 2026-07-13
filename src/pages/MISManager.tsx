@@ -198,7 +198,7 @@ export default function MISManager() {
           })}
 
           {/* Coming soon cards for unregistered plugins */}
-          {['erp', 'inventory', 'hotel', 'bank'].filter(id => !plugins.find(p => p.name === id)).map(id => {
+          {['erp', 'inventory', 'hotel', 'bank'].filter(id => !(plugins ?? []).find(p => p.name === id)).map(id => {
             const IconComponent = misIcons[id] || Database;
             return (
               <div key={id}

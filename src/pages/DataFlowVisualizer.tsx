@@ -142,8 +142,8 @@ function DataFlowVisualizer() {
     
     const newSparks: SparkParticle[] = [];
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-      const speed = 1.5 + Math.random() * 2;
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = 2;
       newSparks.push({
         id: `spark_${sparkIdRef.current++}`,
         x: node.x,
@@ -152,7 +152,7 @@ function DataFlowVisualizer() {
         vy: Math.sin(angle) * speed,
         life: 1,
         color,
-        size: 2 + Math.random() * 3,
+        size: 2.5,
       });
     }
     setSparks(prev => [...prev, ...newSparks].slice(-100));
@@ -173,9 +173,8 @@ function DataFlowVisualizer() {
   useEffect(() => {
     if (!socket) return;
 
-    const spawnPacket = () => {
-      const edgeIndex = Math.floor(Math.random() * EDGES.length);
-      const [from, to] = EDGES[edgeIndex];
+    // Spawn a packet on a specific known edge (real source-driven, not random)
+    const spawnPacketOnEdge = (from: string, to: string) => {
       setEdges(prev => prev.map(edge => {
         if (edge.from === from && edge.to === to) {
           return { ...edge, packets: [...edge.packets.slice(-4), { id: `pkt_${packetIdRef.current++}`, progress: 0, opacity: 0.9, isError: false }] };
@@ -193,13 +192,13 @@ function DataFlowVisualizer() {
       }));
     };
 
-    socket.on('new_message', () => { spawnPacket(); burstSparks('connectors', '#22c55e', 4); setTotalEvents(prev => prev + 1); });
-    socket.on('post_published', () => { spawnPacket(); burstSparks('scheduler', '#3b82f6', 6); setWorkflowActive(true); setTimeout(() => setWorkflowActive(false), 3000); setTotalEvents(prev => prev + 1); });
-    socket.on('api_payload', () => { spawnPacket(); setTotalEvents(prev => prev + 1); });
-    socket.on('stats', () => { spawnPacket(); setTotalEvents(prev => prev + 1); });
+    socket.on('new_message', () => { spawnPacketOnEdge('connectors', 'socketio'); burstSparks('connectors', '#22c55e', 4); setTotalEvents(prev => prev + 1); });
+    socket.on('post_published', () => { spawnPacketOnEdge('scheduler', 'connectors'); burstSparks('scheduler', '#3b82f6', 6); setWorkflowActive(true); setTimeout(() => setWorkflowActive(false), 3000); setTotalEvents(prev => prev + 1); });
+    socket.on('api_payload', () => { spawnPacketOnEdge('pipeline', 'scheduler'); setTotalEvents(prev => prev + 1); });
+    socket.on('stats', () => { spawnPacketOnEdge('supabase', 'socketio'); setTotalEvents(prev => prev + 1); });
 
     socket.on('scan_complete', (data: any) => {
-      spawnPacket();
+      spawnPacketOnEdge('gemini', 'command');
       if (data?.critical > 0 || data?.severity === 'CRITICAL') {
         setNodes(prev => prev.map(node => {
           if (node.id === 'command' || node.id === 'pipeline') return { ...node, status: 'degraded', failureReason: `Scan: ${data.critical || 0} critical` };

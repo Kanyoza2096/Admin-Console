@@ -66,22 +66,29 @@ export default function SystemArchitectureVisualizer() {
   // Track recent activity to animate nodes
   const [activeNodes, setActiveNodes] = useState<Record<string, boolean>>({});
 
+  // Drive node animation from real health matrix instead of random simulation
   useEffect(() => {
-    // Randomly activate nodes to simulate traffic
-    const interval = setInterval(() => {
-      const allIds = ['frontend', 'api', 'auth', 'ai', 'workflow', 'plugins', 'redis', 'supabase', 'socket', 'browser', 'kb', 'fb', 'tw', 'wa'];
-      const randomActive = {};
-      allIds.forEach(id => {
-        if (Math.random() > 0.7) {
-          randomActive[id] = true;
-        }
-      });
-      setActiveNodes(randomActive);
-      
-      setTimeout(() => setActiveNodes({}), 800);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!healthMatrix.length) return;
+    const active: Record<string, boolean> = {};
+    // Mark nodes as "active" (animated) only if their corresponding service is online per real health data
+    healthMatrix.forEach(h => {
+      if (h.status === 'online') {
+        // Map health IDs to node IDs
+        if (h.id === 'flask' || h.id === 'api') active['api'] = true;
+        if (h.id === 'gemini') active['ai'] = true;
+        if (h.id === 'supabase' || h.id === 'supa') active['supabase'] = true;
+        if (h.id === 'redis') active['redis'] = true;
+        if (h.id === 'socket') active['socket'] = true;
+        if (h.id === 'facebook' || h.id === 'fb') active['fb'] = true;
+        if (h.id === 'workers') active['workflow'] = true;
+        if (h.id === 'play' || h.id === 'browser') active['browser'] = true;
+        if (h.id === 'auth') active['auth'] = true;
+        if (h.id === 'plugins') active['plugins'] = true;
+        if (h.id === 'kb') active['kb'] = true;
+      }
+    });
+    setActiveNodes(active);
+  }, [healthMatrix]);
 
   const initialNodes: Node[] = useMemo(() => [
     { id: 'frontend', type: 'service', position: { x: 350, y: 50 }, data: { label: 'Frontend', icon: Monitor, status: 'online', isAnimating: activeNodes['frontend'] } },

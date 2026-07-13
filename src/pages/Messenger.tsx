@@ -163,7 +163,7 @@ export default function Messenger() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-brand-surface/20">
             {msgLoading && <div className="flex justify-center py-10"><RefreshCw className="w-5 h-5 animate-spin text-brand-text-muted" /></div>}
             {msgError && <div className="py-10 text-center text-xs text-brand-danger font-mono">Failed to load messages</div>}
-            {!msgLoading && !msgError && messages.map((msg, idx) => (
+            {!msgLoading && !msgError && (messages ?? []).map((msg, idx) => (
               <motion.div key={msg.id ?? idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.02 }}
                 className={cn('flex', msg.is_me ? 'justify-end' : 'justify-start')}>
                 <div className={cn('max-w-[70%] p-3 rounded-xl border leading-relaxed', msg.is_me ? 'bg-brand-primary border-brand-primary text-white rounded-tr-none' : 'bg-brand-elevated border-brand-border text-brand-text rounded-tl-none')}>

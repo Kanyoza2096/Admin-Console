@@ -77,9 +77,7 @@ export default function APIManager() {
         const d = await res.json();
         const list = (d.keys || []).map((k: any) => ({
           ...k,
-          key_type: k.key_type || k.label?.includes('workspace') ? 'workspace' : k.label?.includes('read') ? 'readonly' : 'admin',
-          request_count: k.request_count || Math.floor(Math.random() * 500),
-          last_used: k.last_used || (Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 86400000).toISOString() : null),
+          key_type: k.key_type || (k.label?.includes('workspace') ? 'workspace' : k.label?.includes('read') ? 'readonly' : 'admin'),
         }));
         setKeys(list);
       }
@@ -341,14 +339,15 @@ export default function APIManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {key.last_used && (
+                    {key.last_used ? (
                       <span className="text-[9px] font-mono text-brand-text-muted hidden md:block">
                         Last used: {new Date(key.last_used).toLocaleDateString()}
                       </span>
+                    ) : (
+                      <span className="text-[9px] font-mono text-brand-text-muted hidden md:block">
+                        Never used
+                      </span>
                     )}
-                    <span className="text-[9px] font-mono text-brand-text-muted hidden md:block">
-                      {key.request_count?.toLocaleString()} requests
-                    </span>
                     <motion.div animate={{ rotate: isExpanded ? 180 : 0 }}>
                       <ChevronDown className="w-4 h-4 text-brand-text-muted" />
                     </motion.div>
@@ -370,8 +369,8 @@ export default function APIManager() {
                           <p className="text-xs font-mono text-brand-text mt-0.5">{typeInfo.label}</p>
                         </div>
                         <div>
-                          <span className="text-[9px] font-mono uppercase text-brand-text-muted">Requests</span>
-                          <p className="text-xs font-mono text-brand-text mt-0.5">{key.request_count?.toLocaleString()}</p>
+                          <span className="text-[9px] font-mono uppercase text-brand-text-muted">Last Used</span>
+                          <p className="text-xs font-mono text-brand-text mt-0.5">{key.last_used ? new Date(key.last_used).toLocaleDateString() : 'Never used'}</p>
                         </div>
                         <div>
                           <span className="text-[9px] font-mono uppercase text-brand-text-muted">Status</span>

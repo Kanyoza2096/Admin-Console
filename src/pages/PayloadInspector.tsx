@@ -12,14 +12,13 @@ import {
   AlertCircle, 
   Copy, 
   Check, 
-  Activity,
-  Play
+  Activity
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore, PayloadLog } from '../store/useStore';
 
 export default function PayloadInspector() {
-  const { payloads, addPayload } = useStore();
+  const { payloads } = useStore();
   const [selectedReq, setSelectedReq] = useState<PayloadLog | null>(null);
   const [filter, setFilter] = useState('all'); // all, inbound, outbound, errors
   const [search, setSearch] = useState('');
@@ -75,114 +74,6 @@ export default function PayloadInspector() {
     }
   };
 
-  // Simulate incoming webhook payloads for manual verification
-  const handleSimulateWebhook = () => {
-    const simulationTemplates = [
-      {
-        endpoint: '/api/v1/webhook/facebook',
-        method: 'POST',
-        type: 'inbound' as const,
-        status: 200,
-        latency: '34ms',
-        request: {
-          object: 'page',
-          entry: [{
-            id: '10493819203',
-            time: Date.now(),
-            messaging: [{
-              sender: { id: '7483920193' },
-              recipient: { id: '10493819203' },
-              message: { text: 'Hello, how can I sign up for the premium plan?' }
-            }]
-          }]
-        },
-        response: {
-          status: 'success',
-          processed_at: new Date().toISOString()
-        }
-      },
-      {
-        endpoint: 'graph.facebook.com/v19.0/me/messages',
-        method: 'POST',
-        type: 'outbound' as const,
-        status: 200,
-        latency: '185ms',
-        request: {
-          messaging_type: 'RESPONSE',
-          recipient: { id: '7483920193' },
-          message: { text: 'You can sign up for the enterprise/premium plan directly inside Settings!' }
-        },
-        response: {
-          recipient_id: '7483920193',
-          message_id: `m_${Math.random().toString(36).substring(2, 15)}`
-        }
-      },
-      {
-        endpoint: 'generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-        method: 'POST',
-        type: 'outbound' as const,
-        status: 200,
-        latency: '0.9s',
-        request: {
-          contents: [{ role: 'user', parts: [{ text: 'Classify this message sentiment: "It does not work!"' }] }]
-        },
-        response: {
-          candidates: [{
-            content: { parts: [{ text: '{\n  "sentiment": "negative",\n  "urgency": "high"\n}' }] }
-          }]
-        }
-      },
-      {
-        endpoint: '/api/v1/webhook/stripe',
-        method: 'POST',
-        type: 'inbound' as const,
-        status: 201,
-        latency: '56ms',
-        request: {
-          id: `evt_${Math.random().toString(36).substring(2, 10)}`,
-          type: 'checkout.session.completed',
-          data: {
-            object: {
-              id: 'cs_live_abc123',
-              amount_total: 4900,
-              currency: 'usd',
-              customer_details: { email: 'operator@kanyoza.com' }
-            }
-          }
-        },
-        response: {
-          received: true
-        }
-      },
-      {
-        endpoint: '/api/v1/mwk-convert',
-        method: 'GET',
-        type: 'inbound' as const,
-        status: 502,
-        latency: '5.4s',
-        request: {
-          from: 'USD',
-          to: 'MWK',
-          amount: 150
-        },
-        response: {
-          error: 'Bad Gateway',
-          message: 'MWK rate provider service failed to respond in 5000ms.'
-        }
-      }
-    ];
-
-    const randomTemplate = simulationTemplates[Math.floor(Math.random() * simulationTemplates.length)];
-    const simulatedLog: PayloadLog = {
-      id: `sim_${Math.floor(Math.random() * 900000 + 100000)}`,
-      time: new Date().toLocaleTimeString(),
-      ...randomTemplate
-    };
-
-    addPayload(simulatedLog);
-    setSelectedReq(simulatedLog);
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -206,16 +97,6 @@ export default function PayloadInspector() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          {/* Simulation Trigger */}
-          <button
-            onClick={handleSimulateWebhook}
-            className="flex items-center space-x-2 px-4 py-2 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 rounded-xl text-brand-primary text-xs font-bold uppercase tracking-wider transition-all"
-            title="Inject a live transaction payload to test real-time bindings"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Simulate Traffic</span>
-          </button>
-
           {/* Tab Filters */}
           <div className="flex space-x-1 bg-brand-surface p-1 rounded-xl border border-brand-border">
             {['all', 'inbound', 'outbound', 'errors'].map(f => (

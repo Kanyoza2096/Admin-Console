@@ -81,9 +81,10 @@ export default function ApiAnalytics() {
   const chartData = Array.from({ length: 7 }, (_, i) => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date().getDay();
+    // Use the real cumulative apiCalls value for today; prior days show 0 (no historical data available)
     return {
       name: dayNames[(today - 6 + i + 7) % 7],
-      calls: Math.round((stats.apiCalls || 0) * (0.08 + Math.random() * 0.05)),
+      calls: i === 6 ? (stats?.apiCalls ?? 0) : 0,
     };
   });
 

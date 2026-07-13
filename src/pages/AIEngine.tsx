@@ -32,7 +32,7 @@ export default function AIEngine() {
     mutationFn: (msg: string) => chatWithAI(cfg, msg),
     onSuccess: (d: any) => {
       const reply = d?.response || d?.reply || 'No response received.';
-      setChatLog(prev => [...prev, { role: 'ai', text: reply, tokens: Math.floor(Math.random() * 200) + 50, latency: Math.floor(Math.random() * 800) + 200 }]);
+      setChatLog(prev => [...prev, { role: 'ai', text: reply }]);
     },
     onError: (err: any) => {
       setChatLog(prev => [...prev, { role: 'ai', text: `⚠ ${err?.message || 'Chat request failed.'}` }]);
@@ -89,7 +89,7 @@ export default function AIEngine() {
               <span className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <HardDrive className="w-3 h-3 text-brand-accent" /> Context Memory
               </span>
-              <span className="text-[9px] font-mono bg-brand-elevated px-1.5 py-0.5 rounded">1.2M Tokens</span>
+              <span className="text-[9px] font-mono bg-brand-elevated px-1.5 py-0.5 rounded">Context Window</span>
             </div>
             <div className="p-3 overflow-y-auto space-y-2 font-mono text-[10px]">
               <div className="p-2 bg-brand-elevated/40 border border-brand-border rounded">
@@ -97,16 +97,12 @@ export default function AIEngine() {
                 <div className="text-white truncate">You are an enterprise AI Orchestrator...</div>
               </div>
               <div className="p-2 bg-brand-elevated/40 border border-brand-border rounded">
-                <div className="text-brand-text-muted mb-1">Workspace Facts</div>
-                <div className="text-brand-primary truncate">14 Integrations Active. Policies Loaded.</div>
+                <div className="text-brand-text-muted mb-1">Active Model</div>
+                <div className="text-brand-primary truncate">{statusData?.config?.gemini_model || '—'}</div>
               </div>
-              {/* Simulate memory fragments */}
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-2 bg-brand-elevated/20 border border-brand-border/50 rounded flex justify-between">
-                  <span className="text-brand-text-muted truncate w-32">Fragment 0x{Math.floor(Math.random() * 10000).toString(16)}</span>
-                  <span className="text-brand-success">{Math.floor(Math.random() * 500)}t</span>
-                </div>
-              ))}
+              <div className="p-4 text-center text-brand-text-muted opacity-60">
+                No additional context fragments available.
+              </div>
             </div>
           </div>
 
@@ -256,32 +252,23 @@ export default function AIEngine() {
               </span>
             </div>
             <div className="p-4 flex-1 flex flex-col justify-center gap-4">
-              {/* Cost Est */}
-              <div className="bg-brand-elevated border border-brand-border rounded-xl p-3 flex justify-between items-center">
-                <span className="text-[10px] font-bold font-mono uppercase text-brand-text-muted">Est. Daily Cost</span>
-                <span className="text-xl font-mono font-bold text-brand-success">$14.20</span>
-              </div>
-              
               <div className="flex justify-between items-end border-b border-brand-border/50 pb-2">
-                <div className="text-[10px] font-mono text-brand-text-muted uppercase">Tokens In</div>
-                <div className="text-lg font-mono font-bold text-white">1.2M</div>
+                <div className="text-[10px] font-mono text-brand-text-muted uppercase">Chat Temp.</div>
+                <div className="text-lg font-mono font-bold text-white">
+                  {statusData ? '—' : '—'}
+                </div>
               </div>
               <div className="flex justify-between items-end border-b border-brand-border/50 pb-2">
-                <div className="text-[10px] font-mono text-brand-text-muted uppercase">Tokens Out</div>
-                <div className="text-lg font-mono font-bold text-brand-primary">450K</div>
+                <div className="text-[10px] font-mono text-brand-text-muted uppercase">Post Temp.</div>
+                <div className="text-lg font-mono font-bold text-brand-primary">
+                  {statusData ? '—' : '—'}
+                </div>
               </div>
-              
-              {/* Fake Graph for token burn */}
-              <div className="mt-4 flex-1 relative flex items-end gap-1 opacity-70">
-                {Array.from({length: 20}).map((_, i) => (
-                  <motion.div 
-                    key={i}
-                    className="w-full bg-brand-primary/50 rounded-t"
-                    initial={{ height: 0 }}
-                    animate={{ height: `${Math.random() * 100}%` }}
-                    transition={{ duration: 0.5, delay: i * 0.05 }}
-                  />
-                ))}
+
+              {/* No historical token data available from backend */}
+              <div className="mt-4 flex-1 flex flex-col items-center justify-center text-center text-brand-text-muted font-mono text-[10px] opacity-60 border border-dashed border-brand-border/40 rounded-xl p-4">
+                <Activity className="w-5 h-5 mb-2 text-brand-border" />
+                <span>No historical token data available</span>
               </div>
             </div>
           </div>

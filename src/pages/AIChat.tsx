@@ -241,7 +241,7 @@ export default function AIChat() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4" ref={scrollRef}>
         <AnimatePresence>
-          {messages.map((msg, i) => (
+          {(messages ?? []).map((msg, i) => (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, y: 15, scale: 0.97 }}

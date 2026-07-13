@@ -50,8 +50,9 @@ export default function Integrations() {
 
   useEffect(() => { fetchData(); }, [restEndpoint]);
 
-  const categories = [...new Set(integrations.map(i => i.category))];
-  const connectedCount = integrations.filter(i => i.connected).length;
+  const safeIntegrations = integrations ?? [];
+  const categories = [...new Set(safeIntegrations.map(i => i.category))];
+  const connectedCount = safeIntegrations.filter(i => i.connected).length;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 pb-20 md:pb-0">
@@ -111,7 +112,7 @@ export default function Integrations() {
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
               <Plug className="w-4 h-4 text-indigo-400" /> System Integrations
             </h2>
-            {integrations.length === 0 ? (
+            {safeIntegrations.length === 0 ? (
               <div className="py-12 text-center border border-dashed border-gray-800 rounded-2xl">
                 <p className="text-xs text-gray-500 font-mono uppercase">No integration data available</p>
               </div>
@@ -121,7 +122,7 @@ export default function Integrations() {
                   <div key={category}>
                     <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-gray-500 mb-3">{category}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {integrations.filter(i => i.category === category).map(integration => (
+                      {safeIntegrations.filter(i => i.category === category).map(integration => (
                         <div key={integration.id} className="bg-[#0f1624] border border-gray-800 rounded-xl p-5 hover:border-indigo-500/30 transition-all">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-sm font-bold text-white">{integration.name}</h4>

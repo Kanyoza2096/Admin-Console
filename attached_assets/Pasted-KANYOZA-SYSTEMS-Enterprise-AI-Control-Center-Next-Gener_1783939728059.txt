@@ -1,0 +1,528 @@
+KANYOZA SYSTEMS — Enterprise AI Control Center (Next Generation)
+
+You are a world-class Staff Frontend Engineer and Senior Product Designer from companies like Stripe, Vercel, Linear, GitHub, and SpaceX.
+
+Your task is NOT to build another admin dashboard.
+
+You are designing the control center for an enterprise AI platform that manages multiple organizations, AI agents, social platforms, workflows, and external systems from one place.
+
+This dashboard should feel like:
+
+- NASA Mission Control
+- Stripe Dashboard
+- GitHub Enterprise
+- Datadog
+- Linear
+- Figma
+- Apple Human Interface Design
+
+Combined into one premium experience.
+
+---
+
+CORE PHILOSOPHY
+
+The UI must answer three questions instantly:
+
+1. What is happening?
+2. What needs attention?
+3. What should I do next?
+
+Everything else is secondary.
+
+Every animation, panel, chart and notification must exist for a reason.
+
+No decorative widgets.
+
+Every pixel communicates system state.
+
+---
+
+DESIGN STYLE
+
+Use:
+
+• Glass morphism
+• Dark enterprise theme
+• Premium gradients
+• Soft shadows
+• Layered surfaces
+• Smooth motion
+• 120 FPS animations
+• Responsive layout
+• Accessibility
+• Professional typography
+• Large spacing
+• Beautiful hierarchy
+
+Avoid:
+
+• Cartoon colors
+• Cheap neon
+• Bootstrap appearance
+• Generic admin templates
+
+---
+
+PRIMARY COLORS
+
+Background:
+#050816
+
+Surface:
+#0B1220
+
+Cards:
+#111827
+
+Border:
+rgba(255,255,255,.06)
+
+Primary:
+#6366F1
+
+Success:
+#10B981
+
+Warning:
+#F59E0B
+
+Danger:
+#EF4444
+
+Info:
+#3B82F6
+
+---
+
+APPLICATION STRUCTURE
+
+Sidebar
+
+• Dashboard
+• AI Engine
+• Guardian
+• Workflow Studio
+• Scheduler
+• Knowledge Base
+• Plugins
+• Social Accounts
+• Workspaces
+• Analytics
+• API Keys
+• Monitoring
+• Settings
+
+Top Navigation
+
+Global Search
+
+Command Palette (Ctrl+K)
+
+Notifications
+
+Quick AI Assistant
+
+Profile
+
+Workspace Switcher
+
+Environment Selector
+
+---
+
+LANDING DASHBOARD
+
+Top KPI Cards
+
+Active Workspaces
+
+AI Requests Today
+
+Posts Published
+
+API Calls
+
+Revenue
+
+System Health
+
+Connected Plugins
+
+Each card should have:
+
+Animated number
+
+Trend percentage
+
+Mini sparkline
+
+Status badge
+
+Hover expansion
+
+---
+
+CENTRAL AREA
+
+Large interactive System Architecture visualization.
+
+Show every subsystem:
+
+Frontend
+
+API
+
+Authentication
+
+AI Engine
+
+Workflow Engine
+
+Plugin Manager
+
+Browser Manager
+
+Redis
+
+Supabase
+
+Socket.IO
+
+Facebook
+
+WhatsApp
+
+Telegram
+
+LinkedIn
+
+Instagram
+
+Twitter
+
+Knowledge Base
+
+Each node should animate live.
+
+Packets should move through the architecture.
+
+Failures should propagate visually.
+
+Healthy services glow softly.
+
+Offline services pulse red.
+
+Hovering a node opens:
+
+Latency
+
+CPU
+
+Memory
+
+Queue
+
+Requests
+
+Errors
+
+Logs
+
+Dependencies
+
+---
+
+RIGHT PANEL
+
+Live AI Activity Feed
+
+Every operation appears in real time.
+
+Examples:
+
+Generating content
+
+Creating image
+
+Publishing post
+
+Refreshing token
+
+Plugin connected
+
+Plugin failed
+
+Workflow completed
+
+Redis cache hit
+
+Browser launched
+
+Gemini completed
+
+Supabase synchronized
+
+Every event should animate beautifully.
+
+---
+
+WORKFLOW STUDIO
+
+Professional node editor.
+
+Like n8n.
+
+Like Langflow.
+
+Like Unreal Engine Blueprints.
+
+Drag-and-drop nodes.
+
+Zoom.
+
+Mini map.
+
+Auto layout.
+
+Connection validation.
+
+Execution visualization.
+
+Live debugging.
+
+---
+
+AI ENGINE
+
+Real-time thinking visualization.
+
+Prompt queue
+
+Context memory
+
+Model selection
+
+Token usage
+
+Streaming responses
+
+Prompt inspector
+
+Response inspector
+
+Conversation timeline
+
+Temperature controls
+
+Provider failover
+
+Latency graphs
+
+---
+
+PLUGIN MARKETPLACE
+
+The platform must feel like an App Store.
+
+Categories:
+
+Education
+
+Healthcare
+
+Government
+
+Finance
+
+Retail
+
+Church
+
+Manufacturing
+
+CRM
+
+ERP
+
+HR
+
+Accounting
+
+Inventory
+
+Agriculture
+
+Every plugin card shows:
+
+Health
+
+Version
+
+Developer
+
+Install
+
+Update
+
+Logs
+
+Permissions
+
+Configuration
+
+Usage
+
+Revenue
+
+---
+
+MULTI TENANT
+
+Workspace switcher.
+
+Every workspace has:
+
+Logo
+
+Brand
+
+Theme
+
+AI Persona
+
+Knowledge Base
+
+Plugins
+
+API Keys
+
+Users
+
+Permissions
+
+Billing
+
+Activity
+
+---
+
+OBSERVABILITY
+
+Live Metrics
+
+CPU
+
+RAM
+
+Redis
+
+Supabase
+
+API
+
+Queue
+
+Browser Pool
+
+Workers
+
+Network
+
+Token Consumption
+
+Cost Estimation
+
+Charts update live.
+
+---
+
+COMMAND CENTER
+
+Floating AI assistant.
+
+Can execute commands.
+
+Examples:
+
+"Publish today's post"
+
+"Restart browser manager"
+
+"Show failing plugins"
+
+"Generate analytics report"
+
+"Create church workspace"
+
+"Install School MIS"
+
+---
+
+MOTION
+
+Every interaction should feel premium.
+
+Micro animations everywhere.
+
+Smooth transitions.
+
+Shared element transitions.
+
+Animated charts.
+
+Animated counters.
+
+Animated gradients.
+
+Animated packet flow.
+
+Magnetic buttons.
+
+Floating particles.
+
+Glowing focus states.
+
+---
+
+PERFORMANCE
+
+React
+
+TypeScript
+
+TailwindCSS
+
+Framer Motion
+
+React Flow
+
+TanStack Query
+
+Zustand
+
+Socket.IO
+
+Virtualized tables
+
+Code splitting
+
+Lazy loading
+
+Memoization
+
+Zero unnecessary re-renders.
+
+---
+
+FINAL GOAL
+
+The finished application should make users say:
+
+"This doesn't look like an open-source dashboard."
+
+"This looks like software built by a billion-dollar AI company."
+
+"This feels like the operating system behind hundreds of organizations."
+
+The interface should communicate confidence, intelligence, reliability, and enterprise-grade engineering.

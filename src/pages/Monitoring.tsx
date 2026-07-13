@@ -117,7 +117,7 @@ function DataFlowVisualizer() {
     const newSparks: SparkParticle[] = [];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
-      newSparks.push({ id: `sp_${sparkIdRef.current++}`, x: node.x, y: node.y, vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2, life: 1, color, size: 2 + Math.random() * 3 });
+      newSparks.push({ id: `sp_${sparkIdRef.current++}`, x: node.x, y: node.y, vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2, life: 1, color, size: 2.5 });
     }
     setSparks(prev => [...prev, ...newSparks].slice(-80));
   };
@@ -131,14 +131,14 @@ function DataFlowVisualizer() {
 
   useEffect(() => {
     if (!socket) return;
-    const spawnPacket = () => {
-      const [from, to] = EDGES[Math.floor(Math.random() * EDGES.length)];
+    // Spawn a packet on a specific known edge (real source-driven)
+    const spawnPacketOnEdge = (from: string, to: string) => {
       setEdges(prev => prev.map(e => e.from === from && e.to === to ? { ...e, packets: [...e.packets.slice(-4), { id: `p_${packetIdRef.current++}`, progress: 0, opacity: 0.9, isError: false }] } : e));
     };
-    socket.on('new_message', () => { spawnPacket(); burstSparks('connectors', '#22c55e', 4); setTotalEvents(p => p + 1); });
-    socket.on('post_published', () => { spawnPacket(); burstSparks('scheduler', '#3b82f6', 6); setWorkflowActive(true); setTimeout(() => setWorkflowActive(false), 3000); setTotalEvents(p => p + 1); });
-    socket.on('api_payload', () => { spawnPacket(); setTotalEvents(p => p + 1); });
-    socket.on('stats', () => { spawnPacket(); setTotalEvents(p => p + 1); });
+    socket.on('new_message', () => { spawnPacketOnEdge('connectors', 'socketio'); burstSparks('connectors', '#22c55e', 4); setTotalEvents(p => p + 1); });
+    socket.on('post_published', () => { spawnPacketOnEdge('scheduler', 'connectors'); burstSparks('scheduler', '#3b82f6', 6); setWorkflowActive(true); setTimeout(() => setWorkflowActive(false), 3000); setTotalEvents(p => p + 1); });
+    socket.on('api_payload', () => { spawnPacketOnEdge('pipeline', 'scheduler'); setTotalEvents(p => p + 1); });
+    socket.on('stats', () => { spawnPacketOnEdge('supabase', 'socketio'); setTotalEvents(p => p + 1); });
     socket.on('worker_error', (d: any) => { setNodes(p => p.map(n => n.id === (d?.source || d?.worker) ? { ...n, status: 'offline', failureReason: d?.error } : n)); burstSparks(d?.source || 'render', '#ef4444', 12); setFailureEvents(p => p + 1); setTotalEvents(p => p + 1); });
     socket.on('provider_failed', (d: any) => { setNodes(p => p.map(n => n.id === 'connectors' ? { ...n, status: 'degraded', failureReason: d?.error } : n)); burstSparks('connectors', '#ef4444', 10); setFailureEvents(p => p + 1); setTotalEvents(p => p + 1); });
     socket.on('post_generated', () => { setNodes(p => p.map(n => n.id === 'gemini' ? { ...n, status: 'thinking' } : n)); burstSparks('gemini', '#a855f7', 10); setTimeout(() => setNodes(p => p.map(n => n.id === 'gemini' && n.status === 'thinking' ? { ...n, status: 'online' } : n)), 2500); });

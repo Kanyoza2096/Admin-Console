@@ -49,7 +49,7 @@ export default function CommandPalette() {
     { id: '6',  icon: GitBranch,    title: 'Workflows',             subtitle: 'Automation Task Pipelines',               action: () => navigate('/workflows') },
     { id: '7',  icon: Network,      title: 'Prometheus Metrics',    subtitle: 'Live Infrastructure Telemetry',           action: () => navigate('/prometheus') },
     { id: '8',  icon: Activity,     title: 'API Analytics',         subtitle: 'View Latency & Request Metrics',          action: () => navigate('/api') },
-    { id: '9',  icon: BarChart3,    title: 'Payload Inspector',     subtitle: 'Inspect & Simulate API Payloads',         action: () => navigate('/payloads') },
+    { id: '9',  icon: BarChart3,    title: 'Payload Inspector',     subtitle: 'Inspect live API payload traffic',         action: () => navigate('/payloads') },
     { id: '10', icon: Settings,     title: 'System Settings',       subtitle: 'Configure Platform & Credentials',        action: () => navigate('/settings') },
   ];
 

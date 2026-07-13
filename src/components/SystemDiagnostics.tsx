@@ -178,7 +178,7 @@ export default function SystemDiagnostics() {
                     {failedLogs.length} Page Errors
                   </span>
                   <span className="text-[9px] text-brand-text-muted leading-tight">
-                    Across {new Set(failedLogs.map(l => l.page)).size} active views
+                    Across {new Set((failedLogs ?? []).map(l => l.page)).size} active views
                   </span>
                 </div>
               </div>
