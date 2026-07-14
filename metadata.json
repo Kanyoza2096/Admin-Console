@@ -1,0 +1,6 @@
+{
+  "name": "Kanyoza Systems Command Console",
+  "description": "Enterprise Command Console for monitoring telemetry, AI personality orchestration, work pipelines, and security.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
