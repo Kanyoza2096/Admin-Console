@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'motion/react';
 import ReactFlow, { 
   Background, Controls, MiniMap, 
@@ -16,7 +16,9 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useStore } from '../store/useStore';
 import { fetchWorkflowStatus, pauseWorkflow, resumeWorkflow, triggerPost } from '../lib/api';
 
-// --- CUSTOM NODES ---
+// ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM NODES
+// ═══════════════════════════════════════════════════════════════════════════
 
 const CustomNodeTemplate = ({ data, icon: Icon, colorClass, borderClass }: any) => {
   return (
@@ -32,6 +34,7 @@ const CustomNodeTemplate = ({ data, icon: Icon, colorClass, borderClass }: any) 
         {data.status === 'running' && <Activity className="w-3 h-3 text-brand-primary animate-pulse" />}
         {data.status === 'success' && <div className="w-2 h-2 rounded-full bg-brand-success" />}
         {data.status === 'error' && <div className="w-2 h-2 rounded-full bg-brand-danger" />}
+        {data.status === 'idle' && <div className="w-2 h-2 rounded-full bg-brand-text-muted/50" />}
       </div>
       <div className="text-[10px] text-brand-text-muted font-mono">{data.subLabel || 'Configure node properties'}</div>
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-brand-elevated border-2 border-brand-primary" />
@@ -51,7 +54,9 @@ const nodeTypes = {
   social: SocialNode
 };
 
-// --- STATIC TOPOLOGY (shape only; status driven by real API) ---
+// ═══════════════════════════════════════════════════════════════════════════
+// STATIC TOPOLOGY
+// ═══════════════════════════════════════════════════════════════════════════
 
 const BASE_NODES: Node[] = [
   { id: '1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'CRON Trigger', subLabel: 'Scheduled content posting', status: 'idle' } },
@@ -66,7 +71,10 @@ const BASE_EDGES: Edge[] = [
   { id: 'e2-4', source: '2', target: '4', animated: false, style: { stroke: '#1E293B', strokeWidth: 2 } },
 ];
 
-/** Map workflow status / current_step to per-node status */
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
 function applyWorkflowStatus(
   baseNodes: Node[],
   wf: { status: string; current_step: string } | undefined
@@ -79,28 +87,24 @@ function applyWorkflowStatus(
     let nodeStatus: string = 'idle';
 
     if (status === 'running') {
-      // Highlight node whose label/id matches current_step
       const matches =
         node.data.label.toLowerCase().includes(step) ||
         node.id === step ||
         (step.includes('trigger') && node.id === '1') ||
-        (step.includes('ai') || step.includes('gemini')) && node.id === '2' ||
-        (step.includes('supabase') || step.includes('db') || step.includes('sync')) && node.id === '3' ||
-        (step.includes('publish') || step.includes('facebook') || step.includes('social')) && node.id === '4';
+        ((step.includes('ai') || step.includes('gemini')) && node.id === '2') ||
+        ((step.includes('supabase') || step.includes('db') || step.includes('sync')) && node.id === '3') ||
+        ((step.includes('publish') || step.includes('facebook') || step.includes('social')) && node.id === '4');
       nodeStatus = matches ? 'running' : 'success';
     } else if (status === 'paused') {
       nodeStatus = 'idle';
     } else if (status === 'error') {
       nodeStatus = 'error';
-    } else {
-      nodeStatus = 'idle';
     }
 
     return { ...node, data: { ...node.data, status: nodeStatus } };
   });
 }
 
-/** Animate edge from trigger→AI when running */
 function applyWorkflowEdges(
   baseEdges: Edge[],
   wf: { status: string } | undefined
@@ -113,6 +117,10 @@ function applyWorkflowEdges(
   }));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default function Workflows() {
   const { restEndpoint, masterToken, triggerNotification } = useStore();
   const cfg = { restEndpoint, masterToken };
@@ -124,21 +132,24 @@ export default function Workflows() {
   const onEdgesChange = useCallback((changes: any) => setEdges(eds => applyEdgeChanges(changes, eds)), []);
   const onConnect = useCallback((params: any) => setEdges(eds => addEdge({ ...params, style: { stroke: '#1E293B', strokeWidth: 2 } }, eds)), []);
 
-  // Real workflow status
+  // ── Real workflow status (NO side effects in select) ──────────────────
   const { data: wfStatus, isError: wfError, error: wfErr, refetch } = useQuery({
     queryKey: ['workflow-status', restEndpoint],
     queryFn: () => fetchWorkflowStatus(cfg),
     retry: 1,
     staleTime: 10_000,
     refetchInterval: 10_000,
-    select: (data) => {
-      // Side-effect: update canvas
-      setNodes(applyWorkflowStatus(BASE_NODES, data));
-      setEdges(applyWorkflowEdges(BASE_EDGES, data));
-      return data;
-    },
   });
 
+  // ── Side effects moved to useEffect ────────────────────────────────────
+  useEffect(() => {
+    if (wfStatus) {
+      setNodes(applyWorkflowStatus(BASE_NODES, wfStatus));
+      setEdges(applyWorkflowEdges(BASE_EDGES, wfStatus));
+    }
+  }, [wfStatus]);
+
+  // ── Mutations ──────────────────────────────────────────────────────────
   const triggerMut = useMutation({
     mutationFn: () => triggerPost(cfg),
     onSuccess: () => {
@@ -202,7 +213,6 @@ export default function Workflows() {
         )}
 
         <div className="flex items-center gap-3">
-          {/* Run / Trigger */}
           {!isRunning && !isPaused && (
             <button
               onClick={() => triggerMut.mutate()}
@@ -214,7 +224,6 @@ export default function Workflows() {
             </button>
           )}
 
-          {/* Pause */}
           {isRunning && (
             <button
               onClick={() => pauseMut.mutate()}
@@ -226,7 +235,6 @@ export default function Workflows() {
             </button>
           )}
 
-          {/* Resume */}
           {isPaused && (
             <button
               onClick={() => resumeMut.mutate()}
@@ -238,7 +246,6 @@ export default function Workflows() {
             </button>
           )}
 
-          {/* Refresh */}
           <button
             onClick={() => refetch()}
             className="p-2 bg-brand-elevated border border-brand-border rounded-xl text-brand-text-muted hover:text-white transition-all"
@@ -275,12 +282,12 @@ export default function Workflows() {
           />
         </ReactFlow>
 
-        {/* Status overlay — shown only when there's real status */}
+        {/* Status overlay */}
         {wfStatus && (
           <div className="absolute right-4 top-4 w-56 bg-brand-surface/90 backdrop-blur-md border border-brand-border rounded-xl shadow-2xl overflow-hidden font-mono z-10">
             <div className="p-3 border-b border-brand-border bg-brand-elevated/50 flex justify-between items-center">
               <span className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Activity className="w-3 h-3 text-brand-primary" /> Workflow Status
+                <Activity className="w-3 h-3 text-brand-primary" /> Status
               </span>
               <span className={cn(
                 "w-2 h-2 rounded-full",
