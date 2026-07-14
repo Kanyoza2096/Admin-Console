@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import {
   fetchStats,
@@ -16,12 +16,7 @@ import {
   CheckCircle,
   Clock,
   Activity,
-  Filter,
   MoreHorizontal,
-  ChevronDown,
-  MessageSquare,
-  ArrowUp,
-  XCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -131,7 +126,7 @@ export default function IncidentCenter() {
     return true;
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [s, h, l, gi] = await Promise.all([
         fetchStats({ restEndpoint, masterToken }).catch(() => null),
@@ -146,13 +141,14 @@ export default function IncidentCenter() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [restEndpoint, masterToken]);
 
   useEffect(() => {
+    if (!restEndpoint || !masterToken) return;
     loadData();
     const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
-  }, [restEndpoint, masterToken]);
+  }, [loadData, restEndpoint, masterToken]);
 
   const getSeverityColor = (severity: IncidentSeverity) => {
     switch (severity) {
@@ -206,8 +202,9 @@ export default function IncidentCenter() {
   }, [incidents]);
 
   return (
-    <div className="flex flex-col h-full gap-4 p-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full gap-4 p-4 relative isolate">
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <AlertTriangle className="w-6 h-6 text-brand-primary" />
           Incident Center
@@ -244,15 +241,15 @@ export default function IncidentCenter() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0 relative isolate">
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">Critical Incidents</p>
+                <p className="text-sm text-gray-400">Critical</p>
                 <p className="text-2xl font-bold text-white">{statsSummary.critical}</p>
               </div>
             </div>
@@ -261,11 +258,11 @@ export default function IncidentCenter() {
         <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5 text-orange-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-400">High Incidents</p>
+                <p className="text-sm text-gray-400">High</p>
                 <p className="text-2xl font-bold text-white">{statsSummary.high}</p>
               </div>
             </div>
@@ -274,7 +271,7 @@ export default function IncidentCenter() {
         <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5 text-yellow-400" />
               </div>
               <div>
@@ -287,7 +284,7 @@ export default function IncidentCenter() {
         <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
                 <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
               <div>
@@ -300,7 +297,7 @@ export default function IncidentCenter() {
       </div>
 
       {/* Incident List */}
-      <div className="flex-1 bg-brand-surface border border-brand-border rounded-xl overflow-hidden flex flex-col">
+      <div className="flex-1 bg-brand-surface border border-brand-border rounded-xl overflow-hidden flex flex-col min-h-0 relative isolate">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-gray-400">Loading incidents...</div>
         ) : filteredIncidents.length === 0 ? (
@@ -308,45 +305,55 @@ export default function IncidentCenter() {
             No incidents match your filters
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {filteredIncidents.map((incident) => (
               <div
                 key={incident.id}
-                className="p-4 border-b border-brand-border/30 hover:bg-brand-elevated/30"
+                className="p-4 border-b border-brand-border/30 hover:bg-brand-elevated/30 relative"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <span className={cn('flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium', getSeverityColor(incident.severity))}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
+                    <span className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium shrink-0',
+                      getSeverityColor(incident.severity)
+                    )}>
                       {getSeverityIcon(incident.severity)}
                       {incident.severity}
                     </span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-white">{incident.title}</h3>
-                        <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusColor(incident.status))}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="text-lg font-semibold text-white truncate">{incident.title}</h3>
+                        <span className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shrink-0',
+                          getStatusColor(incident.status)
+                        )}>
                           {incident.status}
                         </span>
                       </div>
                       <p className="text-gray-400 text-sm mt-1">{incident.description}</p>
-                      <div className="flex items-center gap-4 mt-3">
-                        <span className="text-gray-500 text-xs">Started: {new Date(incident.startedAt).toLocaleString()}</span>
-                        {incident.acknowledgedAt && <span className="text-gray-500 text-xs">Acknowledged: {new Date(incident.acknowledgedAt).toLocaleString()}</span>}
-                        {incident.resolvedAt && <span className="text-gray-500 text-xs">Resolved: {new Date(incident.resolvedAt).toLocaleString()}</span>}
+                      <div className="flex items-center gap-4 mt-3 flex-wrap text-xs">
+                        <span className="text-gray-500">Started: {new Date(incident.startedAt).toLocaleString()}</span>
+                        {incident.acknowledgedAt && (
+                          <span className="text-gray-500">Acknowledged: {new Date(incident.acknowledgedAt).toLocaleString()}</span>
+                        )}
+                        {incident.resolvedAt && (
+                          <span className="text-gray-500">Resolved: {new Date(incident.resolvedAt).toLocaleString()}</span>
+                        )}
                       </div>
                       {incident.affectedServices.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {incident.affectedServices.map((svc) => (
-                            <span key={svc} className="text-xs px-2 py-0.5 bg-brand-elevated border border-brand-border rounded-full text-gray-400">{svc}</span>
+                            <span key={svc} className="text-xs px-2 py-0.5 bg-brand-elevated border border-brand-border rounded-full text-gray-400">
+                              {svc}
+                            </span>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button className="p-1.5 rounded-lg hover:bg-brand-elevated text-gray-400 hover:text-white">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button className="p-1.5 rounded-lg hover:bg-brand-elevated text-gray-400 hover:text-white shrink-0">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             ))}
