@@ -187,7 +187,7 @@ export const useStore = create<AppState>((set, get) => ({
   }
   set({ isAuthenticated: true });
 },
-},
+
   logout: () => {
     get().disconnectSocket();
     get().stopRealtimeSubscriptions();
