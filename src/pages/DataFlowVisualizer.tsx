@@ -1,12 +1,15 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA FLOW VISUALIZER — Enterprise Edition
+// ═══════════════════════════════════════════════════════════════════════════
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { 
   Cpu, Zap, Activity, MessageCircle, Send, Globe, Server, Database, 
-  Search, X, AlertTriangle, Network, Maximize2, Minimize2, RotateCcw
+  Search, X, AlertTriangle, Maximize2, Minimize2, RotateCcw, Network
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchStats } from '../lib/api';
+import { cn } from '../lib/utils';
 
 interface FlowNode {
   id: string;
@@ -65,14 +68,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function DataFlowVisualizer() {
-  const { socket, healthMatrix } = useStore();
-  const { data: stats } = useQuery({
-    queryKey: ['data-flow/stats', useStore.getState().restEndpoint, useStore.getState().masterToken],
-    queryFn: () => fetchStats({ restEndpoint: useStore.getState().restEndpoint, masterToken: useStore.getState().masterToken }),
-    enabled: !!useStore.getState().restEndpoint && !!useStore.getState().masterToken,
-    refetchInterval: 30000,
-  });
-
+  const { socket, healthMatrix, stats } = useStore();
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [edges, setEdges] = useState<FlowEdge[]>([]);
   const [sparks, setSparks] = useState<SparkParticle[]>([]);
@@ -96,7 +92,7 @@ export default function DataFlowVisualizer() {
   const lastPinchRef = useRef<number | null>(null);
   const statsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize nodes and edges
+  // Initialize
   useEffect(() => {
     setNodes(NODE_LAYOUT.map(n => ({ ...n, status: 'online' })));
     setEdges(EDGES.map(([from, to]) => ({ from, to, packets: [] })));
@@ -256,7 +252,7 @@ export default function DataFlowVisualizer() {
     setHighlightedNode(found?.id || null);
   }, [searchQuery, nodes]);
 
-  // Auto-hide stats pill after 5 seconds
+  // Auto-hide stats pill
   const showStatsTemporarily = () => {
     setShowStats(true);
     if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
@@ -294,8 +290,8 @@ export default function DataFlowVisualizer() {
 
   const getNodeStatus = (node: FlowNode): string => {
     if (node.status === 'offline' || node.status === 'degraded' || node.status === 'thinking') return node.status;
-    if (node.id === 'connectors' && (stats as any)?.apiCalls > 0) return 'active';
-    if (node.id === 'scheduler' && (stats as any)?.postsPublished > 0) return 'active';
+    if (node.id === 'connectors' && stats.apiCalls > 0) return 'active';
+    if (node.id === 'scheduler' && stats.postsPublished > 0) return 'active';
     if (node.id === 'socketio' && eventsPerSec > 0) return 'active';
     return node.status;
   };
@@ -306,18 +302,18 @@ export default function DataFlowVisualizer() {
 
   return (
     <div className={cn(
-      "flex flex-col gap-4",
-      isFullscreen ? "fixed inset-0 z-50 bg-brand-bg p-4" : "w-full h-full"
+      "flex flex-col gap-3",
+      isFullscreen ? "fixed inset-0 z-50 bg-brand-bg p-4" : "w-full"
     )}>
       {/* Header Bar */}
       <div className="flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-brand-primary/10 rounded-xl border border-brand-primary/20">
-            <Network className="w-5 h-5 text-brand-primary" />
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-brand-primary/10 rounded-lg border border-brand-primary/20">
+            <Network className="w-4 h-4 text-brand-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">Data Flow Visualizer</h1>
-            <p className="text-[10px] text-brand-text-muted font-mono">REAL-TIME SYSTEM TOPOLOGY</p>
+            <h1 className="text-sm font-bold text-white">Data Flow Visualizer</h1>
+            <p className="text-[9px] text-brand-text-muted font-mono">REAL-TIME SYSTEM TOPOLOGY</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -329,31 +325,31 @@ export default function DataFlowVisualizer() {
           <button onClick={resetView} className="p-1.5 rounded-lg bg-brand-elevated border border-brand-border text-brand-text-muted hover:text-white transition-colors" title="Reset view">
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg bg-brand-elevated border border-brand-border text-brand-text-muted hover:text-white transition-colors" title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 rounded-lg bg-brand-elevated border border-brand-border text-brand-text-muted hover:text-white transition-colors">
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3 shrink-0">
+      <div className="grid grid-cols-3 gap-2 shrink-0">
         {[
           { label: 'Events', value: totalEvents.toLocaleString(), icon: Activity, color: 'text-brand-primary' },
-          { label: 'API Calls', value: (stats as any)?.apiCalls?.toLocaleString() || '0', icon: Zap, color: 'text-yellow-400' },
+          { label: 'API Calls', value: stats.apiCalls?.toLocaleString() || '0', icon: Zap, color: 'text-yellow-400' },
           { label: 'Failures', value: failureEvents, icon: AlertTriangle, color: 'text-red-400' },
         ].map(card => (
-          <div key={card.label} className="bg-brand-surface border border-brand-border rounded-xl p-3">
-            <div className="flex items-center justify-between mb-1">
+          <div key={card.label} className="bg-brand-surface border border-brand-border rounded-xl p-2.5">
+            <div className="flex items-center justify-between mb-0.5">
               <span className="text-[9px] text-brand-text-muted uppercase font-mono">{card.label}</span>
-              <card.icon className={cn("w-3.5 h-3.5", card.color)} />
+              <card.icon className={cn("w-3 h-3", card.color)} />
             </div>
-            <div className={cn("text-xl font-mono font-bold", card.color)}>{card.value}</div>
+            <div className={cn("text-lg font-mono font-bold", card.color)}>{card.value}</div>
           </div>
         ))}
       </div>
 
       {/* Topology Map */}
-      <div className="relative flex-1 bg-brand-surface border border-brand-border rounded-2xl overflow-hidden min-h-[400px]">
+      <div className="relative flex-1 bg-brand-surface border border-brand-border rounded-2xl overflow-hidden min-h-[350px]">
         {/* Background grid */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #6366f1 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
@@ -428,14 +424,11 @@ export default function DataFlowVisualizer() {
               transition={{ duration: status === 'thinking' ? 0.8 : 1.5, repeat: Infinity }}
               onMouseEnter={() => setHoveredNode(node.id)} onMouseLeave={() => setHoveredNode(null)}
               onClick={() => { setSearchQuery(node.label); setHighlightedNode(node.id); }}>
-              {/* Pulse rings */}
-              {status === 'thinking' && <><motion.div className="absolute inset-0 rounded-full" style={{ border: '2px solid #a855f7' }} animate={{ scale: [1, 2.5], opacity: [0.5, 0] }} transition={{ duration: 1.2, repeat: Infinity }} /></>}
+              {status === 'thinking' && <motion.div className="absolute inset-0 rounded-full" style={{ border: '2px solid #a855f7' }} animate={{ scale: [1, 2.5], opacity: [0.5, 0] }} transition={{ duration: 1.2, repeat: Infinity }} />}
               {status === 'active' && <motion.div className="absolute inset-0 rounded-full" style={{ border: `2px solid ${color}` }} animate={{ scale: [1, 2], opacity: [0.5, 0] }} transition={{ duration: 1.5, repeat: Infinity }} />}
               {status === 'offline' && <motion.div className="absolute inset-0 rounded-full" style={{ border: `2px solid ${color}` }} animate={{ scale: [1, 1.4], opacity: [0.7, 0] }} transition={{ duration: 2, repeat: Infinity }} />}
               {isHighlighted && <motion.div className="absolute -inset-2 rounded-full" style={{ border: '2px solid #f59e0b' }} animate={{ scale: [1, 1.15, 1], opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />}
               {node.recoveredAt && Date.now() - node.recoveredAt < 3000 && <motion.div className="absolute inset-0 rounded-full bg-green-400/30" animate={{ scale: [0, 2], opacity: [1, 0] }} transition={{ duration: 1.5 }} />}
-
-              {/* Node icon */}
               <motion.div className="p-2.5 rounded-xl cursor-pointer transition-all"
                 style={{ backgroundColor: `${color}18`, border: `1.5px solid ${color}50`, boxShadow: status === 'offline' ? `0 0 14px ${color}40` : status === 'thinking' ? `0 0 18px #a855f740` : isHighlighted ? `0 0 16px #f59e0b40` : undefined, backdropFilter: 'blur(4px)' }}
                 whileHover={{ scale: 1.2 }} title={`${node.label}: ${STATUS_LABELS[status]}${node.failureReason ? ` — ${node.failureReason}` : ''}`}>
@@ -445,8 +438,6 @@ export default function DataFlowVisualizer() {
               <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}
                 animate={{ opacity: status === 'active' || status === 'thinking' ? [1, 0.3, 1] : status === 'offline' ? [1, 0.5, 1] : 1 }}
                 transition={{ duration: status === 'offline' ? 0.5 : 1, repeat: Infinity }} />
-
-              {/* Tooltip */}
               <AnimatePresence>
                 {isHovered && (
                   <motion.div initial={{ opacity: 0, y: 5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5, scale: 0.95 }}
@@ -462,7 +453,7 @@ export default function DataFlowVisualizer() {
         })}
 
         {/* Minimap */}
-        <div className="absolute bottom-12 right-3 w-24 h-16 bg-brand-elevated/80 backdrop-blur-sm border border-brand-border/50 rounded-lg overflow-hidden z-20 opacity-50 hover:opacity-100 transition-opacity">
+        <div className="absolute bottom-10 right-3 w-24 h-16 bg-brand-elevated/80 backdrop-blur-sm border border-brand-border/50 rounded-lg overflow-hidden z-20 opacity-50 hover:opacity-100 transition-opacity">
           <svg className="w-full h-full" viewBox="0 0 100 100">
             {EDGES.map(([from, to]) => {
               const fn = NODE_LAYOUT.find(n => n.id === from);
@@ -475,11 +466,12 @@ export default function DataFlowVisualizer() {
         </div>
 
         {/* Collapsible Stats Pill */}
-        <div className="absolute bottom-3 right-3 z-30">
+        <div className="absolute bottom-2 right-2 z-30">
           <AnimatePresence mode="wait">
             {showStats ? (
               <motion.div key="expanded" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                className="flex items-center gap-3 bg-brand-elevated/95 backdrop-blur-sm border border-brand-border rounded-lg px-3 py-2 text-[10px] font-mono shadow-lg">
+                className="flex items-center gap-3 bg-brand-elevated/95 backdrop-blur-sm border border-brand-border rounded-lg px-3 py-1.5 text-[10px] font-mono shadow-lg"
+                onMouseLeave={() => setShowStats(false)}>
                 <div className="flex items-center gap-1.5"><Activity className="w-3 h-3 text-brand-primary" /><span className="text-brand-text-muted">Events/s:</span><span className="text-brand-primary font-bold">{eventsPerSec}</span></div>
                 <div className="flex items-center gap-1.5"><Zap className="w-3 h-3 text-brand-success" /><span className="text-brand-text-muted">Total:</span><span className="text-brand-success font-bold">{totalEvents.toLocaleString()}</span></div>
                 {failureEvents > 0 && <div className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3 text-red-400" /><span className="text-red-400 font-bold">{failureEvents}</span></div>}
