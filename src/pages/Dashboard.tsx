@@ -7,8 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight, Sparkles, Wifi, WifiOff
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import DataFlowVisualizer from '../components/DataFlowVisualizer';
-
+import DataFlowVisualizer from './DataFlowVisualizer';
 const PulseDot = ({ color }: { color: string }) => (
   <span className="relative flex h-2 w-2">
     <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
