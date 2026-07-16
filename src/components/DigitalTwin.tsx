@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { Activity, Clock, AlertTriangle, Zap } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface TraceData {
   id: string;
