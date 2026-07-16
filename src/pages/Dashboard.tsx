@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
 import { 
-  Activity, Zap, FileText, Box, BrainCircuit, Layers,
+  Activity, Zap, FileText, Box, BrainCircuit, Layers, MessageSquare,
   ArrowUpRight, ArrowDownRight, Sparkles, Wifi, WifiOff
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import DataFlowVisualizer from './DataFlowVisualizer';
+import DigitalTwin from '../components/DigitalTwin';
+
 const PulseDot = ({ color }: { color: string }) => (
   <span className="relative flex h-2 w-2">
     <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
@@ -32,6 +34,7 @@ const AnimatedNumber = ({ value, duration = 600 }: { value: number; duration?: n
 
 export default function Dashboard() {
   const { stats, messages, healthMatrix, payloads, socketConnected } = useStore();
+  const [activeTab, setActiveTab] = useState<'topology' | 'traces'>('topology');
 
   const onlineServices = healthMatrix.filter(h => h.status === 'online').length;
   const totalServices = healthMatrix.length || 7;
@@ -63,7 +66,6 @@ export default function Dashboard() {
     },
   ], [stats, systemHealth, onlineServices, totalServices]);
 
-  // Live activity feed
   const activityFeed = useMemo(() => {
     const items: any[] = [];
     messages.slice(0, 5).forEach(m => items.push({
@@ -111,14 +113,11 @@ export default function Dashboard() {
               card.bg, card.border
             )}
           >
-            {/* Glow orb */}
             <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-20 blur-xl" style={{ backgroundColor: card.color }} />
-            
             <div className="flex items-center justify-between relative z-10">
               <span className="text-[10px] font-mono uppercase tracking-wider text-white/60">{card.label}</span>
               <card.icon className="w-4 h-4" style={{ color: card.color }} />
             </div>
-            
             <div className="relative z-10">
               <div className="text-2xl font-mono font-bold text-white">
                 <AnimatedNumber value={card.value} />
@@ -137,9 +136,43 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* ═══ DATA FLOW VISUALIZER — CENTERPIECE ═══ */}
-      <div className="flex-1 min-h-[400px]">
-        <DataFlowVisualizer />
+      {/* ═══ TOPOLOGY + DIGITAL TWIN — Tabs on mobile ═══ */}
+      <div className="flex-1 min-h-[400px] flex flex-col">
+        {/* Tab buttons — mobile only */}
+        <div className="flex gap-1 mb-2 xl:hidden shrink-0">
+          <button
+            onClick={() => setActiveTab('topology')}
+            className={cn(
+              "flex-1 py-1.5 text-[10px] font-mono font-bold uppercase rounded-lg transition-all",
+              activeTab === 'topology' 
+                ? 'bg-brand-primary text-white' 
+                : 'bg-brand-surface border border-brand-border text-brand-text-muted'
+            )}
+          >
+            Topology
+          </button>
+          <button
+            onClick={() => setActiveTab('traces')}
+            className={cn(
+              "flex-1 py-1.5 text-[10px] font-mono font-bold uppercase rounded-lg transition-all",
+              activeTab === 'traces' 
+                ? 'bg-brand-primary text-white' 
+                : 'bg-brand-surface border border-brand-border text-brand-text-muted'
+            )}
+          >
+            Live Traces
+          </button>
+        </div>
+        
+        {/* Content grid */}
+        <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-4 min-h-0">
+          <div className={cn("xl:col-span-2", activeTab !== 'topology' ? 'hidden xl:block' : '')}>
+            <DataFlowVisualizer />
+          </div>
+          <div className={cn("xl:col-span-1", activeTab !== 'traces' ? 'hidden xl:block' : '')}>
+            <DigitalTwin />
+          </div>
+        </div>
       </div>
 
       {/* ═══ LIVE ACTIVITY TICKER ═══ */}
