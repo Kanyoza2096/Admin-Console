@@ -142,6 +142,8 @@ export default function Layout() {
   const [isSearchOpen,        setIsSearchOpen]        = useState(false);
   const [searchQuery,         setSearchQuery]         = useState('');
   const [clockTime,           setClockTime]           = useState(() => new Date().toISOString().replace('T', ' ').substring(0, 19));
+  const [hidden,              setHidden]              = useState(false);
+  const lastScrollY = React.useRef(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -168,6 +170,21 @@ export default function Layout() {
     startRealtimeSubscriptions();
     return () => { disconnectSocket(); stopRealtimeSubscriptions(); };
   }, [connectSocket, disconnectSocket, fetchInitialData, startRealtimeSubscriptions, stopRealtimeSubscriptions]);
+
+  // Scroll-based auto-hide for mobile bottom nav
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
+        setHidden(true);
+      } else {
+        setHidden(false);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Periodic RTT measurement
   useEffect(() => {
@@ -307,8 +324,6 @@ export default function Layout() {
 
         {/* Right: Status indicators + controls */}
         <div className="flex items-center gap-1 flex-shrink-0">
-
-          {/* System status pills */}
           <div className="hidden xl:flex items-center gap-2 mr-2 text-xs font-mono">
             <div className={cn(
               'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold',
@@ -332,8 +347,6 @@ export default function Layout() {
               </div>
             )}
           </div>
-
-          {/* AI Health badge */}
           <div className={cn(
             'hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold mr-1',
             MOOD_META[personaMood]?.color
@@ -341,8 +354,6 @@ export default function Layout() {
             <Bot className="w-3 h-3" />
             <span>{MOOD_META[personaMood]?.label}</span>
           </div>
-
-          {/* Dark/Light toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-brand-elevated transition-colors text-brand-text-muted hover:text-brand-text"
@@ -350,8 +361,6 @@ export default function Layout() {
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-
-          {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => { setIsNotificationsOpen(!isNotificationsOpen); setIsAdminMenuOpen(false); setIsTenantOpen(false); }}
@@ -419,8 +428,6 @@ export default function Layout() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* Workspace selector — global scope for Brands / AI Profiles / Integrations / Knowledge Base */}
           <div className="relative hidden lg:block">
             <button
               onClick={() => { setIsWorkspaceOpen(!isWorkspaceOpen); setIsAdminMenuOpen(false); setIsNotificationsOpen(false); setIsTenantOpen(false); }}
@@ -467,66 +474,62 @@ export default function Layout() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* Tenant selector — now uses real workspace data */}
-<div className="relative hidden md:block">
-  <button
-    onClick={() => { setIsTenantOpen(!isTenantOpen); setIsAdminMenuOpen(false); setIsNotificationsOpen(false); setIsWorkspaceOpen(false); }}
-    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-brand-elevated border border-brand-border text-xs font-medium transition-colors"
-  >
-    <Building2 className="w-3.5 h-3.5 text-brand-text-muted" />
-    <span className="max-w-24 truncate">{activeWorkspace?.name || currentTenant}</span>
-    <ChevronDown className="w-3 h-3 text-brand-text-muted" />
-  </button>
-  <AnimatePresence>
-    {isTenantOpen && (
-      <motion.div
-        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.96 }}
-        className="absolute right-0 top-full mt-2 w-52 bg-brand-surface border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
-      >
-        <div className="p-3 border-b border-brand-border">
-          <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Switch Workspace</p>
-        </div>
-        {workspaces.length === 0 ? (
-          <p className="px-3 py-4 text-xs text-brand-text-muted font-mono">No workspaces yet.</p>
-        ) : (
-          workspaces.map(ws => (
+          <div className="relative hidden md:block">
             <button
-              key={ws.id}
-              onClick={() => { 
-                setCurrentTenant(ws.name); 
-                setSelectedWorkspaceId(ws.id); 
-                setIsTenantOpen(false); 
-              }}
-              className={cn(
-                'w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-brand-elevated transition-colors text-left',
-                String(selectedWorkspaceId) === String(ws.id) && 'bg-brand-primary/10 text-brand-primary'
-              )}
+              onClick={() => { setIsTenantOpen(!isTenantOpen); setIsAdminMenuOpen(false); setIsNotificationsOpen(false); setIsWorkspaceOpen(false); }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-brand-elevated border border-brand-border text-xs font-medium transition-colors"
             >
-              <div className="w-6 h-6 rounded-md bg-brand-primary/20 text-brand-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                {ws.name[0]?.toUpperCase()}
-              </div>
-              <span className="truncate font-medium">{ws.name}</span>
-              {String(selectedWorkspaceId) === String(ws.id) && <CheckCircle className="w-3.5 h-3.5 ml-auto flex-shrink-0" />}
+              <Building2 className="w-3.5 h-3.5 text-brand-text-muted" />
+              <span className="max-w-24 truncate">{activeWorkspace?.name || currentTenant}</span>
+              <ChevronDown className="w-3 h-3 text-brand-text-muted" />
             </button>
-          ))
-        )}
-        <div className="p-1.5 border-t border-brand-border">
-          <button
-            onClick={() => { navigate('/tenants'); setIsTenantOpen(false); }}
-            className="w-full py-2 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
-          >
-            Manage Workspaces
-          </button>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-</div>
-
-          {/* User menu */}
+            <AnimatePresence>
+              {isTenantOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  className="absolute right-0 top-full mt-2 w-52 bg-brand-surface border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  <div className="p-3 border-b border-brand-border">
+                    <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Switch Workspace</p>
+                  </div>
+                  {workspaces.length === 0 ? (
+                    <p className="px-3 py-4 text-xs text-brand-text-muted font-mono">No workspaces yet.</p>
+                  ) : (
+                    workspaces.map(ws => (
+                      <button
+                        key={ws.id}
+                        onClick={() => { 
+                          setCurrentTenant(ws.name); 
+                          setSelectedWorkspaceId(ws.id); 
+                          setIsTenantOpen(false); 
+                        }}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-brand-elevated transition-colors text-left',
+                          String(selectedWorkspaceId) === String(ws.id) && 'bg-brand-primary/10 text-brand-primary'
+                        )}
+                      >
+                        <div className="w-6 h-6 rounded-md bg-brand-primary/20 text-brand-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                          {ws.name[0]?.toUpperCase()}
+                        </div>
+                        <span className="truncate font-medium">{ws.name}</span>
+                        {String(selectedWorkspaceId) === String(ws.id) && <CheckCircle className="w-3.5 h-3.5 ml-auto flex-shrink-0" />}
+                      </button>
+                    ))
+                  )}
+                  <div className="p-1.5 border-t border-brand-border">
+                    <button
+                      onClick={() => { navigate('/tenants'); setIsTenantOpen(false); }}
+                      className="w-full py-2 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
+                    >
+                      Manage Workspaces
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div className="relative border-l border-brand-border ml-1 pl-2">
             <button
               onClick={() => { setIsAdminMenuOpen(!isAdminMenuOpen); setIsNotificationsOpen(false); setIsTenantOpen(false); }}
@@ -584,15 +587,11 @@ export default function Layout() {
 
       {/* ── BODY (Sidebar + Content) ── */}
       <div className="flex flex-1 overflow-hidden">
-
-        {/* ── SIDEBAR ── */}
         <nav className={cn(
           'fixed lg:relative top-14 lg:top-0 left-0 h-[calc(100vh-3.5rem)] lg:h-full w-64 bg-brand-surface border-r border-brand-border z-40',
           'flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0',
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}>
-
-          {/* Clock + connection status */}
           <div className="px-4 py-3 border-b border-brand-border flex items-center justify-between">
             <span className="text-[11px] font-mono text-brand-text-muted tabular-nums">{clockTime} UTC</span>
             <ConnectionBadge
@@ -603,16 +602,12 @@ export default function Layout() {
               socketTransport={socketTransport}
             />
           </div>
-
-          {/* Nav items grouped */}
           <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
             {NAV_GROUPS.map(group => {
               const items = NAV_ITEMS.filter(i => i.group === group.key);
               return (
                 <div key={group.key}>
-                  <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-text-muted">
-                    {group.label}
-                  </p>
+                  <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-text-muted">{group.label}</p>
                   <div className="space-y-0.5">
                     {items.map(item => (
                       <NavLink
@@ -636,8 +631,6 @@ export default function Layout() {
               );
             })}
           </div>
-
-          {/* Bottom: Connection orb + logout */}
           <div className="p-3 border-t border-brand-border space-y-2">
             <div className="flex items-center justify-center py-2">
               <ConnectionOrb
@@ -657,17 +650,13 @@ export default function Layout() {
             </button>
           </div>
         </nav>
-
-        {/* ── MAIN CONTENT ── */}
         <main className="flex-1 flex flex-col overflow-hidden">
           <SystemDiagnostics />
-          {/* Breadcrumb / page title bar */}
           <div className="h-10 flex-shrink-0 flex items-center px-6 bg-brand-bg/50 border-b border-brand-border/50 gap-3">
             <LayoutGrid className="w-3.5 h-3.5 text-brand-text-muted" />
             <span className="text-xs text-brand-text-muted">/</span>
             <span className="text-xs font-semibold text-brand-text">{currentPage?.label || 'Dashboard'}</span>
           </div>
-
           <div className="flex-1 overflow-x-hidden overflow-y-auto bg-brand-bg p-4 md:p-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] lg:pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <AnimatePresence mode="wait">
               <motion.div
@@ -685,8 +674,12 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-brand-surface border-t border-brand-border z-50 flex items-center justify-around px-2">
+      {/* ── MOBILE BOTTOM NAV — Auto-hide on scroll ── */}
+      <motion.div
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-brand-surface border-t border-brand-border z-50 flex items-center justify-around px-2"
+        animate={{ y: hidden ? '100%' : '0%' }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+      >
         {[
           { to: '/',          icon: LayoutDashboard, label: 'Home' },
           { to: '/ai-brain',  icon: BrainCircuit,    label: 'AI' },
@@ -715,7 +708,7 @@ export default function Layout() {
           <Menu className="w-5 h-5" />
           <span className="text-[10px] font-semibold">More</span>
         </button>
-      </div>
+      </motion.div>
 
       {/* ── MOBILE OVERLAY ── */}
       {isMobileMenuOpen && (
