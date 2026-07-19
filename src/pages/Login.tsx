@@ -106,8 +106,8 @@ export default function Login() {
         setFailedAttempts(prev => prev + 1);
         
         const hostname = window.location.hostname;
-        const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1') || hostname.includes('preview') || hostname.includes('run.app');
-        
+        const isLocal = hostname === 'localhost' || 
+               hostname.includes('127.0.0.1');
         if (isLocal) {
           localStorage.setItem('kanyoza_authenticated', 'true');
           setStep('success');
