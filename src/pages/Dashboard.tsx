@@ -11,6 +11,7 @@ import {
 import { cn } from '../lib/utils';
 import DataFlowVisualizer from './DataFlowVisualizer';
 import DigitalTwin from '../components/DigitalTwin';
+import { StatCard, LiveStream, HealthMatrix, GuardianAlertsWidget } from '../components/SystemDiagnostics';
 
 // ── Pulse dot with glow ────────────────────────────────────────────────────
 
