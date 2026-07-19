@@ -15,52 +15,55 @@ export interface LiveNotification {
 
 const CONFIG = {
   alert: {
-    icon:    ShieldAlert,
-    label:   'SECURITY ALERT',
-    route:   '/guardian',
-    base:    'border-brand-danger/40 bg-gradient-to-br from-brand-danger/20 to-brand-danger/5',
-    badge:   'bg-brand-danger/20 text-brand-danger',
-    iconCls: 'text-brand-danger',
-    glow:    'shadow-[0_0_30px_rgba(239,68,68,0.25)]',
+    icon: ShieldAlert,
+    label: 'Security Alert',
+    route: '/guardian',
+    base: 'border-red-500/30 bg-gradient-to-br from-red-500/15 to-red-500/5',
+    badge: 'bg-red-500/15 text-red-400 border-red-500/20',
+    iconCls: 'text-red-400',
+    progressBg: 'bg-red-400',
+    glow: 'shadow-[0_0_30px_rgba(239,68,68,0.2)]',
   },
   post: {
-    icon:    FileText,
-    label:   'BROADCAST PUBLISHED',
-    route:   '/posts',
-    base:    'border-brand-primary/40 bg-gradient-to-br from-brand-primary/20 to-brand-primary/5',
-    badge:   'bg-brand-primary/20 text-brand-primary',
-    iconCls: 'text-brand-primary',
-    glow:    'shadow-[0_0_30px_rgba(79,70,229,0.25)]',
+    icon: FileText,
+    label: 'Post Published',
+    route: '/posts',
+    base: 'border-violet-500/30 bg-gradient-to-br from-violet-500/15 to-violet-500/5',
+    badge: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
+    iconCls: 'text-violet-400',
+    progressBg: 'bg-violet-400',
+    glow: 'shadow-[0_0_30px_rgba(139,92,246,0.2)]',
   },
   message: {
-    icon:    MessageSquare,
-    label:   'NEW MESSAGE',
-    route:   '/',
-    base:    'border-brand-accent/40 bg-gradient-to-br from-brand-accent/20 to-brand-accent/5',
-    badge:   'bg-brand-accent/20 text-brand-accent',
-    iconCls: 'text-brand-accent',
-    glow:    'shadow-[0_0_30px_rgba(6,182,212,0.25)]',
+    icon: MessageSquare,
+    label: 'New Message',
+    route: '/messenger',
+    base: 'border-sky-500/30 bg-gradient-to-br from-sky-500/15 to-sky-500/5',
+    badge: 'bg-sky-500/15 text-sky-400 border-sky-500/20',
+    iconCls: 'text-sky-400',
+    progressBg: 'bg-sky-400',
+    glow: 'shadow-[0_0_30px_rgba(14,165,233,0.2)]',
   },
   payload: {
-    icon:    Package,
-    label:   'INCOMING PAYLOAD',
-    route:   '/payloads',
-    base:    'border-brand-warning/40 bg-gradient-to-br from-brand-warning/20 to-brand-warning/5',
-    badge:   'bg-brand-warning/20 text-brand-warning',
-    iconCls: 'text-brand-warning',
-    glow:    'shadow-[0_0_30px_rgba(245,158,11,0.25)]',
+    icon: Package,
+    label: 'API Payload',
+    route: '/payloads',
+    base: 'border-amber-500/30 bg-gradient-to-br from-amber-500/15 to-amber-500/5',
+    badge: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+    iconCls: 'text-amber-400',
+    progressBg: 'bg-amber-400',
+    glow: 'shadow-[0_0_30px_rgba(245,158,11,0.2)]',
   },
 } as const;
 
 const AUTO_DISMISS_MS = 5000;
 
 export default function LiveEventToast() {
-  const notification   = useStore(state => state.lastNotification);
-  const dismiss        = useStore(state => state.dismissNotification);
-  const navigate       = useNavigate();
-  const timerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notification = useStore(state => state.lastNotification);
+  const dismiss = useStore(state => state.dismissNotification);
+  const navigate = useNavigate();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-dismiss after AUTO_DISMISS_MS
   useEffect(() => {
     if (!notification) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -81,70 +84,59 @@ export default function LiveEventToast() {
       {notification && cfg && (
         <motion.div
           key={notification.id}
-          initial={{ opacity: 0, x: 80, scale: 0.92 }}
-          animate={{ opacity: 1, x: 0,  scale: 1    }}
-          exit={{   opacity: 0, x: 80,  scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
           className={cn(
-            'fixed bottom-24 right-4 md:bottom-8 md:right-6 z-[100]',
-            'w-[calc(100vw-2rem)] max-w-[340px]',
-            'rounded-2xl border backdrop-blur-md',
+            'fixed bottom-24 right-4 md:bottom-6 md:right-6 z-[100]',
+            'w-[calc(100vw-2rem)] max-w-[360px]',
+            'rounded-2xl border backdrop-blur-xl',
             'flex flex-col gap-3 p-4 font-mono text-xs',
-            cfg.base,
-            cfg.glow,
+            'cursor-pointer hover:brightness-110 transition-all',
+            cfg.base, cfg.glow,
           )}
+          onClick={handleNavigate}
         >
-          {/* Header row */}
+          {/* Header */}
           <div className="flex items-center justify-between">
-            <span className={cn('px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest', cfg.badge)}>
+            <span className={cn('px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border', cfg.badge)}>
               {cfg.label}
             </span>
             <button
-              onClick={dismiss}
-              className="text-brand-text-muted hover:text-brand-text transition-colors p-0.5 rounded hover:bg-white/10"
+              onClick={e => { e.stopPropagation(); dismiss(); }}
+              className="text-brand-text-muted/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Body row */}
+          {/* Body */}
           <div className="flex items-start gap-3">
-            <div className={cn('mt-0.5 shrink-0', cfg.iconCls)}>
+            <div className={cn('p-2 rounded-xl bg-white/5 flex-shrink-0', cfg.iconCls)}>
               <cfg.icon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-brand-text text-sm leading-snug truncate">
-                {notification.title}
-              </p>
+              <p className="font-bold text-white text-sm leading-snug">{notification.title}</p>
               {notification.subtitle && (
-                <p className={cn('text-[10px] uppercase tracking-wider mt-0.5', cfg.iconCls)}>
-                  {notification.subtitle}
-                </p>
+                <p className="text-[10px] text-brand-text-muted mt-1 uppercase tracking-wider">{notification.subtitle}</p>
               )}
             </div>
           </div>
 
-          {/* Progress bar + view link */}
-          <div className="flex items-center justify-between gap-3">
-            {/* shrinking timer bar */}
-            <div className="flex-1 h-[2px] bg-white/10 rounded-full overflow-hidden">
+          {/* Progress bar */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
               <motion.div
-                className={cn('h-full rounded-full', cfg.iconCls.replace('text-', 'bg-'))}
+                className={cn('h-full rounded-full', cfg.progressBg)}
                 initial={{ width: '100%' }}
                 animate={{ width: '0%' }}
                 transition={{ duration: AUTO_DISMISS_MS / 1000, ease: 'linear' }}
               />
             </div>
-            <button
-              onClick={handleNavigate}
-              className={cn(
-                'flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] transition-colors shrink-0',
-                cfg.iconCls,
-                'hover:opacity-70'
-              )}
-            >
-              View <ExternalLink className="w-3 h-3" />
-            </button>
+            <span className="text-[8px] font-mono text-brand-text-muted/50 flex items-center gap-1 flex-shrink-0">
+              View <ExternalLink className="w-2.5 h-2.5" />
+            </span>
           </div>
         </motion.div>
       )}
