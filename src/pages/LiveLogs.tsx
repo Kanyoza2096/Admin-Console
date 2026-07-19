@@ -208,8 +208,7 @@ export default function LiveLogs() {
             className={cn('p-1.5 rounded-lg transition-all', showFilters ? 'bg-brand-primary/20 text-brand-primary' : 'text-brand-text-muted hover:text-white')}>
             <Filter className="w-3.5 h-3.5" />
           </button>
-
-          <button onClick={() => setLogs([]); fetchRecentLogs({ restEndpoint, masterToken }, { limit: 300, level: filterLevel || undefined, module: filterModule || undefined, search: searchQuery || undefined }).then(r => setLogs(r.logs || [])).catch(() => {})}
+          <button onClick={() => { setLogs([]); fetchRecentLogs({ restEndpoint, masterToken }, { limit: 300, level: filterLevel || undefined, module: filterModule || undefined, search: searchQuery || undefined }).then(r => setLogs(r.logs || [])).catch(() => {}); }}
             className="p-1.5 rounded-lg text-brand-text-muted hover:text-white transition-all">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
