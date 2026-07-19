@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis,
@@ -9,84 +9,83 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../store/useStore';
 import { fetchResources, type ResourcePayload } from '../lib/api';
 
-// ── Static fallbacks ──────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────
+
 const RADAR_FALLBACK = [
-  { subject: 'CPU Load',   A: 120, B: 110, fullMark: 150 },
-  { subject: 'Memory',     A: 98,  B: 130, fullMark: 150 },
-  { subject: 'Network',    A: 86,  B: 130, fullMark: 150 },
-  { subject: 'Disk I/O',   A: 99,  B: 100, fullMark: 150 },
-  { subject: 'DB Queries', A: 85,  B: 90,  fullMark: 150 },
-  { subject: 'Cache Hit',  A: 65,  B: 85,  fullMark: 150 },
+  { subject: 'CPU',    A: 40, B: 35, fullMark: 100 },
+  { subject: 'Memory', A: 55, B: 50, fullMark: 100 },
+  { subject: 'Network',A: 30, B: 25, fullMark: 100 },
+  { subject: 'Disk',   A: 20, B: 18, fullMark: 100 },
+  { subject: 'Workers',A: 60, B: 55, fullMark: 100 },
+  { subject: 'Cache',  A: 75, B: 70, fullMark: 100 },
 ];
 
-const TRAFFIC_SEED = [
-  { time: '00:00', requests: 4000, errors: 24, latency: 45 },
-  { time: '04:00', requests: 3000, errors: 13, latency: 42 },
-  { time: '08:00', requests: 2000, errors: 98, latency: 60 },
-  { time: '12:00', requests: 2780, errors: 39, latency: 50 },
-  { time: '16:00', requests: 1890, errors: 48, latency: 48 },
-  { time: '20:00', requests: 2390, errors: 38, latency: 46 },
-];
+const CHART_THEME = {
+  grid: '#27272a',
+  axis: '#52525b',
+  tooltip: { backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' },
+};
 
-// ── Transform ResourcePayload → radar rows ────────────────────────────────────
+// ── Transform ──────────────────────────────────────────────────────────────
+
 function toRadarData(r: ResourcePayload) {
   return [
-    { subject: 'CPU Load', A: Math.round(r.cpu_percent),    B: Math.round(r.cpu_percent * 0.9),     fullMark: 100 },
-    { subject: 'Memory',   A: Math.round(r.memory_percent), B: Math.round(r.memory_percent * 0.95), fullMark: 100 },
-    { subject: 'Network',  A: Math.min(100, Math.round(r.network_in_kbps / 10)),  B: Math.min(100, Math.round(r.network_out_kbps / 10)), fullMark: 100 },
-    { subject: 'Disk I/O', A: Math.round(r.disk_percent),   B: Math.round(r.disk_percent * 0.9),    fullMark: 100 },
-    { subject: 'Workers',  A: Math.min(100, Math.round((r.workers_active / 3) * 100)), B: Math.min(100, Math.round(r.queue_depth / 2)), fullMark: 100 },
-    { subject: 'Disk',     A: Math.round(r.disk_percent),   B: Math.round(r.disk_percent * 1.05),   fullMark: 100 },
+    { subject: 'CPU',     A: Math.round(r.cpu_percent),            B: Math.round(r.cpu_percent * 0.9),     fullMark: 100 },
+    { subject: 'Memory',  A: Math.round(r.memory_percent),         B: Math.round(r.memory_percent * 0.95), fullMark: 100 },
+    { subject: 'Network', A: Math.min(100, Math.round(r.network_in_kbps / 10)),  B: Math.min(100, Math.round(r.network_out_kbps / 10)), fullMark: 100 },
+    { subject: 'Disk',    A: Math.round(r.disk_percent),           B: Math.round(r.disk_percent * 0.9),    fullMark: 100 },
+    { subject: 'Workers', A: Math.min(100, Math.round((r.workers_active / 3) * 100)), B: Math.min(100, Math.round(r.queue_depth / 2)), fullMark: 100 },
+    { subject: 'Cache',   A: Math.round(100 - r.memory_percent * 0.5), B: Math.round(100 - r.memory_percent * 0.6), fullMark: 100 },
   ];
 }
 
-const TOOLTIP_STYLE = {
-  contentStyle: { backgroundColor: '#0A0E17', borderColor: '#1E293B', borderRadius: '8px' },
-  itemStyle: { color: '#E2E8F0' },
-};
+// ═══════════════════════════════════════════════════════════════════════════
+// RESOURCE RADAR
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Resource Radar ────────────────────────────────────────────────────────────
 export function ResourceRadar() {
-  const restEndpoint = useStore(state => state.restEndpoint);
-  const masterToken  = useStore(state => state.masterToken);
+  const { restEndpoint, masterToken } = useStore();
   const cfg = { restEndpoint, masterToken };
 
   const { data: resources } = useQuery({
     queryKey: ['resources', restEndpoint],
-    queryFn:  () => fetchResources(cfg),
+    queryFn: () => fetchResources(cfg),
     refetchInterval: 30_000,
-    retry: 0, // endpoint may not exist on backend — fail silently and use fallback
+    retry: 0,
   });
 
   const radarData = resources ? toRadarData(resources) : RADAR_FALLBACK;
 
   return (
-    <div className="bg-brand-surface rounded-2xl border border-brand-border p-5 h-[400px] flex flex-col">
-      <div className="flex justify-between items-end mb-6">
+    <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5 h-[400px] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-widest flex items-center mb-1">
-            <Cpu className="w-4 h-4 mr-2 text-brand-primary" />
-            Resource Utilization
+          <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+            <Cpu className="w-3.5 h-3.5 text-brand-primary" /> Resource Radar
           </h2>
-          <p className="text-xs font-mono text-brand-text-muted">MULTIDIMENSIONAL LOAD ANALYSIS</p>
+          <p className="text-[9px] font-mono text-brand-text-muted mt-0.5">Multi-dimensional load</p>
         </div>
-        {resources && (
-          <span className="text-[10px] font-mono text-brand-success flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-success inline-block animate-pulse" />
-            Live
+        {resources ? (
+          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
           </span>
+        ) : (
+          <span className="text-[9px] font-mono text-brand-text-muted">Waiting for data…</span>
         )}
       </div>
-      <div className="flex-1 w-full h-full min-h-0">
+
+      {/* Chart */}
+      <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-            <PolarGrid stroke="#1E293B" />
-            <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748B', fontSize: 10, fontFamily: 'monospace' }} />
+          <RadarChart cx="50%" cy="48%" outerRadius="75%" data={radarData}>
+            <PolarGrid stroke={CHART_THEME.grid} strokeOpacity={0.5} />
+            <PolarAngleAxis dataKey="subject" tick={{ fill: CHART_THEME.axis, fontSize: 9, fontFamily: 'monospace' }} />
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <Radar name="Node Alpha" dataKey="A" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.4} />
-            <Radar name="Node Beta"  dataKey="B" stroke="#10B981" fill="#10B981" fillOpacity={0.4} />
-            <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+            <Tooltip contentStyle={CHART_THEME.tooltip} itemStyle={{ fontSize: '11px' }} />
+            <Radar name="Current" dataKey="A" stroke="#818cf8" fill="#818cf8" fillOpacity={0.3} strokeWidth={2} />
+            <Radar name="Baseline" dataKey="B" stroke="#34d399" fill="#34d399" fillOpacity={0.15} strokeWidth={1.5} strokeDasharray="4 3" />
+            <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '16px', fontFamily: 'monospace' }} />
           </RadarChart>
         </ResponsiveContainer>
       </div>
@@ -94,73 +93,85 @@ export function ResourceRadar() {
   );
 }
 
-// ── Traffic Composed Chart ────────────────────────────────────────────────────
-// Builds a rolling 7-point window using live resource data when available.
-// "errors" is derived deterministically from network load rather than Math.random().
+// ═══════════════════════════════════════════════════════════════════════════
+// TRAFFIC COMPOSED CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
 export function TrafficComposedChart() {
-  const restEndpoint = useStore(state => state.restEndpoint);
-  const masterToken  = useStore(state => state.masterToken);
+  const { restEndpoint, masterToken } = useStore();
   const cfg = { restEndpoint, masterToken };
 
   const { data: resources } = useQuery({
     queryKey: ['resources', restEndpoint],
-    queryFn:  () => fetchResources(cfg),
+    queryFn: () => fetchResources(cfg),
     refetchInterval: 30_000,
     retry: 0,
   });
 
-  // Rolling window of traffic data points
-  const windowRef = useRef<typeof TRAFFIC_SEED>(TRAFFIC_SEED);
-  const [trafficData, setTrafficData] = useState(TRAFFIC_SEED);
+  const windowRef = useRef<{ time: string; requests: number; errors: number; latency: number }[]>(
+    Array.from({ length: 7 }, (_, i) => ({
+      time: new Date(Date.now() - (6 - i) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      requests: 2000 + Math.floor(Math.random() * 2000),
+      errors: Math.floor(Math.random() * 40),
+      latency: 35 + Math.floor(Math.random() * 30),
+    }))
+  );
+  const [trafficData, setTrafficData] = useState(windowRef.current);
 
   useEffect(() => {
     if (!resources) return;
-    const totalNetwork = resources.network_in_kbps + resources.network_out_kbps;
-    // Derive errors deterministically from disk I/O pressure — no Math.random()
+    const totalNet = resources.network_in_kbps + resources.network_out_kbps;
     const errorProxy = Math.round(resources.disk_percent * 0.8 + resources.cpu_percent * 0.2);
     const point = {
-      time:     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      requests: Math.round(totalNetwork) || 2000,
-      errors:   Math.min(errorProxy, 120),
-      latency:  Math.round(35 + resources.cpu_percent * 0.5 + resources.memory_percent * 0.15),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      requests: Math.round(totalNet) || 2000,
+      errors: Math.min(errorProxy, 120),
+      latency: Math.round(35 + resources.cpu_percent * 0.5 + resources.memory_percent * 0.15),
     };
     windowRef.current = [...windowRef.current.slice(-6), point];
     setTrafficData([...windowRef.current]);
   }, [resources]);
 
+  // ── Stats ────────────────────────────────────────────────────────────────
+  const latest = trafficData[trafficData.length - 1];
+  const avgLatency = Math.round(trafficData.reduce((s, d) => s + d.latency, 0) / trafficData.length);
+  const totalErrors = trafficData.reduce((s, d) => s + d.errors, 0);
+
   return (
-    <div className="bg-brand-surface rounded-2xl border border-brand-border p-5 h-[400px] flex flex-col">
-      <div className="flex justify-between items-end mb-6">
+    <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5 h-[400px] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 shrink-0">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-widest flex items-center mb-1">
-            <Activity className="w-4 h-4 mr-2 text-brand-accent" />
-            Traffic & Anomaly Correlation
+          <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-brand-primary" /> Traffic & Anomalies
           </h2>
-          <p className="text-xs font-mono text-brand-text-muted">REQUEST VOLUME VS LATENCY & ERRORS</p>
+          <div className="flex items-center gap-3 mt-1 text-[9px] font-mono text-brand-text-muted">
+            <span>Avg latency: <span className="text-white font-bold">{avgLatency}ms</span></span>
+            <span>Errors: <span className="text-red-400 font-bold">{totalErrors}</span></span>
+          </div>
         </div>
-        {resources && (
-          <span className="text-[10px] font-mono text-brand-success flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-success inline-block animate-pulse" />
-            Live
+        {resources ? (
+          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
           </span>
+        ) : (
+          <span className="text-[9px] font-mono text-brand-text-muted">Waiting…</span>
         )}
       </div>
-      <div className="flex-1 w-full h-full min-h-0">
+
+      {/* Chart */}
+      <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={trafficData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-            <XAxis dataKey="time" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
-            <YAxis yAxisId="left"  stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
-            <YAxis yAxisId="right" orientation="right" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#0A0E17', borderColor: '#1E293B', borderRadius: '8px' }}
-              itemStyle={{ color: '#E2E8F0', fontSize: '12px' }}
-              labelStyle={{ color: '#94A3B8', fontSize: '10px', marginBottom: '4px' }}
-            />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
-            <Area  yAxisId="left"  type="monotone" dataKey="requests" fill="#4F46E5" stroke="#4F46E5" fillOpacity={0.1} name="Requests/hr" />
-            <Bar   yAxisId="right"                  dataKey="errors"   barSize={12}   fill="#EF4444" name="Errors/hr" radius={[4, 4, 0, 0]} />
-            <Line  yAxisId="right" type="monotone" dataKey="latency"  stroke="#10B981" strokeWidth={2} name="Avg Latency (ms)" dot={{ r: 3, fill: '#0A0E17', strokeWidth: 2 }} />
+          <ComposedChart data={trafficData} margin={{ top: 5, right: 10, bottom: 0, left: -15 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} vertical={false} strokeOpacity={0.5} />
+            <XAxis dataKey="time" stroke={CHART_THEME.axis} fontSize={9} tickLine={false} axisLine={false} />
+            <YAxis yAxisId="left" stroke={CHART_THEME.axis} fontSize={9} tickLine={false} axisLine={false} tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v} />
+            <YAxis yAxisId="right" orientation="right" stroke={CHART_THEME.axis} fontSize={9} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={CHART_THEME.tooltip} itemStyle={{ fontSize: '11px' }} labelStyle={{ fontSize: '10px', color: '#a1a1aa', marginBottom: '4px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '12px' }} />
+            <Area yAxisId="left" type="monotone" dataKey="requests" fill="#818cf8" stroke="#818cf8" fillOpacity={0.08} name="Requests" />
+            <Bar yAxisId="right" dataKey="errors" barSize={14} fill="#ef4444" name="Errors" radius={[4, 4, 0, 0]} opacity={0.8} />
+            <Line yAxisId="right" type="monotone" dataKey="latency" stroke="#34d399" strokeWidth={2} name="Latency ms" dot={{ r: 3, fill: '#18181b', stroke: '#34d399', strokeWidth: 2 }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
