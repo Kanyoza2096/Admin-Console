@@ -1,26 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
-import { Palette, Plus, Trash2, Edit2, AlertTriangle, X, RefreshCw, CheckCircle, Bot } from 'lucide-react';
-import { cn, fetchWithTimeout } from '../lib/utils';
+import { 
+  Palette, Plus, Trash2, Edit2, AlertTriangle, X, RefreshCw, 
+  CheckCircle, Bot, Globe, Hash, Users, Search
+} from 'lucide-react';
+import { cn } from '../lib/utils';
+import { toast } from 'sonner';
 
 interface Brand {
-  id: string;
-  name: string;
-  tone?: string;
-  hashtags?: string;
-  language?: string;
-  audience?: string;
-  workspace_id?: string;
-  ai_profile_id?: string;
+  id: string; name: string; tone?: string; hashtags?: string;
+  language?: string; audience?: string; workspace_id?: string; ai_profile_id?: string;
 }
 
-interface AIProfile {
-  id: string;
-  name: string;
-  tone?: string;
-  expertise?: string;
-}
+interface AIProfile { id: string; name: string; tone?: string; expertise?: string; }
+
+const SKELETON_CARD = () => (
+  <div className="bg-brand-surface/50 border border-brand-border/50 rounded-2xl p-5 animate-pulse space-y-3">
+    <div className="h-5 w-24 bg-brand-elevated rounded" />
+    <div className="flex gap-2"><div className="h-5 w-16 bg-brand-elevated rounded-full" /><div className="h-5 w-14 bg-brand-elevated rounded-full" /></div>
+    <div className="h-3 w-32 bg-brand-elevated rounded" />
+    <div className="pt-3 border-t border-brand-border/30 flex justify-end gap-2"><div className="h-8 w-8 bg-brand-elevated rounded" /><div className="h-8 w-8 bg-brand-elevated rounded" /></div>
+  </div>
+);
 
 export default function Brands() {
   const { restEndpoint, masterToken } = useStore();
@@ -33,7 +35,7 @@ export default function Brands() {
   const [aiProfiles, setAiProfiles] = useState<AIProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Brand | null>(null);
@@ -41,11 +43,6 @@ export default function Brands() {
   const [form, setForm] = useState({ name: '', tone: '', hashtags: '', language: '', audience: '', ai_profile_id: '' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  const showToast = (msg: string, ok: boolean) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const fetchWorkspaces = async () => {
     try {
@@ -61,14 +58,10 @@ export default function Brands() {
 
   const fetchBrands = async () => {
     if (!selectedWorkspaceId) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await fetch(`${base}/workspaces/${selectedWorkspaceId}/brands`, { headers });
-      if (res.ok) {
-        const d = await res.json();
-        setBrands(d.brands || []);
-      }
+      if (res.ok) { const d = await res.json(); setBrands(d.brands || []); }
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -77,10 +70,7 @@ export default function Brands() {
     if (!selectedWorkspaceId) return;
     try {
       const res = await fetch(`${base}/workspaces/${selectedWorkspaceId}/ai-profiles`, { headers });
-      if (res.ok) {
-        const d = await res.json();
-        setAiProfiles(d.ai_profiles || []);
-      }
+      if (res.ok) { const d = await res.json(); setAiProfiles(d.ai_profiles || []); }
     } catch {}
   };
 
@@ -91,36 +81,21 @@ export default function Brands() {
 
   const openEdit = (b: Brand) => {
     setEditing(b);
-    setForm({ 
-      name: b.name, tone: b.tone || '',  hashtags: Array.isArray(b.hashtags) ? b.hashtags.join(', ') : (b.hashtags || ''),
-      language: b.language || '', audience: b.audience || '', 
-      ai_profile_id: b.ai_profile_id || '' 
-    });
+    setForm({ name: b.name, tone: b.tone || '', hashtags: Array.isArray(b.hashtags) ? b.hashtags.join(', ') : (b.hashtags || ''), language: b.language || '', audience: b.audience || '', ai_profile_id: b.ai_profile_id || '' });
     setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { showToast('Brand name is required', false); return; }
+    if (!form.name.trim()) { toast.error('Brand name is required'); return; }
     setSaving(true);
     try {
-      const payload = { 
-        ...form, 
-        hashtags: form.hashtags ? form.hashtags.split(',').map(t => t.trim()).filter(Boolean) : [],
-        ai_profile_id: form.ai_profile_id || null,
-      };
+      const payload = { ...form, hashtags: form.hashtags ? form.hashtags.split(',').map(t => t.trim()).filter(Boolean) : [], ai_profile_id: form.ai_profile_id || null };
       const url = editing ? `${base}/brands/${editing.id}` : `${base}/workspaces/${selectedWorkspaceId}/brands`;
-      const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
-      if (res.ok) {
-        showToast(editing ? 'Brand updated' : 'Brand created', true);
-        resetForm();
-        fetchBrands();
-      } else {
-        const d = await res.json();
-        showToast(d.error || 'Save failed', false);
-      }
-    } catch (err: any) { showToast(err.message || 'Save failed', false); }
+      const res = await fetch(url, { method: editing ? 'PUT' : 'POST', headers, body: JSON.stringify(payload) });
+      if (res.ok) { toast.success(editing ? 'Brand updated' : 'Brand created'); resetForm(); fetchBrands(); }
+      else { const d = await res.json(); toast.error(d.error || 'Save failed'); }
+    } catch (err: any) { toast.error(err.message || 'Save failed'); }
     finally { setSaving(false); }
   };
 
@@ -129,132 +104,174 @@ export default function Brands() {
     setDeleting(true);
     try {
       const res = await fetch(`${base}/brands/${confirmDelete.id}`, { method: 'DELETE', headers });
-      if (res.ok) {
-        showToast(`"${confirmDelete.name}" deleted`, true);
-        setConfirmDelete(null);
-        fetchBrands();
-      } else {
-        const d = await res.json();
-        showToast(d.error || 'Delete failed', false);
-      }
-    } catch (err: any) { showToast(err.message || 'Delete failed', false); }
+      if (res.ok) { toast.success(`"${confirmDelete.name}" deleted`); setConfirmDelete(null); fetchBrands(); }
+      else { const d = await res.json(); toast.error(d.error || 'Delete failed'); }
+    } catch (err: any) { toast.error(err.message || 'Delete failed'); }
     finally { setDeleting(false); }
   };
 
-  return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-20 md:pb-0">
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className={cn("fixed top-20 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-mono text-xs font-bold", toast.ok ? "bg-brand-success text-white" : "bg-brand-danger text-white")}>
-            {toast.ok ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}{toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
+  const filteredBrands = useMemo(() => {
+    if (!searchQuery.trim()) return brands;
+    const q = searchQuery.toLowerCase();
+    return brands.filter(b => b.name.toLowerCase().includes(q) || (b.tone || '').toLowerCase().includes(q));
+  }, [brands, searchQuery]);
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight flex items-center">
-            <Palette className="w-8 h-8 mr-3 text-brand-primary" /> Brands
-          </h1>
-          <p className="text-brand-text-muted text-sm font-mono mt-1">BRAND VOICE & IDENTITY PROFILES</p>
-        </div>
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5 pb-20">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-brand-primary/10 rounded-xl border border-brand-primary/20">
+            <Palette className="w-5 h-5 text-brand-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">Brands</h1>
+            <p className="text-[10px] text-brand-text-muted font-mono uppercase tracking-wider mt-0.5">
+              {brands.length} brand{brands.length !== 1 ? 's' : ''} · Voice & identity profiles
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
           <select value={selectedWorkspaceId} onChange={e => setSelectedWorkspaceId(e.target.value)}
-            className="px-3 py-2 bg-brand-surface border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary">
+            className="bg-brand-surface border border-brand-border/50 rounded-xl px-3 py-2 text-xs text-brand-text font-medium focus:outline-none focus:border-brand-primary/50 transition-all">
             {workspaces.length === 0 && <option value="">No workspaces</option>}
             {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
-          <button onClick={() => { resetForm(); setShowForm(v => !v); }}
-            className="px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-bold hover:bg-brand-primary/90 transition-colors shadow-glow-primary flex items-center gap-2 disabled:opacity-50"
-            disabled={!selectedWorkspaceId}>
-            <Plus className="w-4 h-4" /> Add Brand
-          </button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-text-muted" />
+            <input type="text" placeholder="Search..." value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-2 bg-brand-surface border border-brand-border/50 rounded-xl text-xs text-brand-text placeholder-brand-text-muted font-mono focus:outline-none focus:border-brand-primary/50 w-36 transition-all" />
+          </div>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            onClick={() => { resetForm(); setShowForm(v => !v); }}
+            disabled={!selectedWorkspaceId}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary text-white text-xs font-bold font-mono uppercase tracking-wider hover:bg-brand-primary/90 transition-all shadow-glow-primary disabled:opacity-50">
+            <Plus className="w-4 h-4" /> Add
+          </motion.button>
         </div>
       </div>
 
+      {/* Form */}
       <AnimatePresence>
         {showForm && (
           <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-            onSubmit={handleSubmit} className="p-5 bg-brand-surface border border-brand-border rounded-2xl space-y-4 overflow-hidden">
+            onSubmit={handleSubmit} className="p-5 bg-brand-surface/80 backdrop-blur-sm border border-brand-border/50 rounded-2xl space-y-4 overflow-hidden">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-brand-text">{editing ? 'Edit Brand' : 'New Brand'}</h3>
-              <button type="button" onClick={resetForm}><X className="w-4 h-4 text-brand-text-muted" /></button>
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-brand-text flex items-center gap-2">
+                <Palette className="w-4 h-4 text-brand-primary" /> {editing ? 'Edit Brand' : 'New Brand'}
+              </h3>
+              <button type="button" onClick={resetForm} className="p-1 rounded-lg hover:bg-brand-elevated text-brand-text-muted"><X className="w-4 h-4" /></button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1">Name</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary" /></div>
-              <div><label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1">Tone</label><input value={form.tone} onChange={e => setForm(f => ({ ...f, tone: e.target.value }))} placeholder="e.g. Bold, friendly" className="w-full px-3 py-2 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary" /></div>
-              <div><label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1">Language</label><input value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="e.g. English" className="w-full px-3 py-2 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary" /></div>
-              <div><label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1">Audience</label><input value={form.audience} onChange={e => setForm(f => ({ ...f, audience: e.target.value }))} placeholder="e.g. Young professionals" className="w-full px-3 py-2 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary" /></div>
-              <div className="md:col-span-2"><label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1">Hashtags</label><input value={form.hashtags} onChange={e => setForm(f => ({ ...f, hashtags: e.target.value }))} placeholder="#brand #marketing" className="w-full px-3 py-2 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 block">Name</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all" /></div>
+              <div><label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 block">Tone</label><input value={form.tone} onChange={e => setForm(f => ({ ...f, tone: e.target.value }))} placeholder="Bold, friendly" className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all" /></div>
+              <div><label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 block">Language</label><input value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="English" className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all" /></div>
+              <div><label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 block">Audience</label><input value={form.audience} onChange={e => setForm(f => ({ ...f, audience: e.target.value }))} placeholder="Young professionals" className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all" /></div>
+              <div className="md:col-span-2"><label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 block">Hashtags</label><input value={form.hashtags} onChange={e => setForm(f => ({ ...f, hashtags: e.target.value }))} placeholder="#brand #marketing" className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all" /></div>
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-mono font-bold uppercase text-brand-text-muted mb-1 flex items-center gap-1.5">
-                  <Bot className="w-3.5 h-3.5" /> AI Profile
-                </label>
+                <label className="text-[9px] font-mono font-bold uppercase text-brand-text-muted mb-1 flex items-center gap-1.5"><Bot className="w-3.5 h-3.5 text-brand-primary" /> AI Profile</label>
                 <select value={form.ai_profile_id} onChange={e => setForm(f => ({ ...f, ai_profile_id: e.target.value }))}
-                  className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary">
-                  <option value="">None (use workspace default)</option>
-                  {aiProfiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}{p.tone ? ` (${p.tone})` : ''}</option>
-                  ))}
+                  className="w-full px-3 py-2.5 bg-brand-elevated border border-brand-border/50 rounded-xl text-sm text-brand-text focus:outline-none focus:border-brand-primary/50 transition-all">
+                  <option value="">None (workspace default)</option>
+                  {aiProfiles.map(p => <option key={p.id} value={p.id}>{p.name}{p.tone ? ` (${p.tone})` : ''}</option>)}
                 </select>
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={resetForm} className="px-4 py-2 bg-brand-surface hover:bg-brand-elevated border border-brand-border text-brand-text-muted rounded-xl text-sm font-semibold">Cancel</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-xl text-sm font-semibold shadow-glow-primary disabled:opacity-50">
-                {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Brand'}
+              <button type="button" onClick={resetForm} className="px-4 py-2 rounded-xl bg-brand-surface border border-brand-border text-brand-text-muted hover:text-white text-xs font-semibold transition-colors">Cancel</button>
+              <button type="submit" disabled={saving} className="px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-semibold shadow-glow-primary disabled:opacity-50 transition-all">
+                {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create'}
               </button>
             </div>
           </motion.form>
         )}
       </AnimatePresence>
 
+      {/* Brand Cards */}
       {!selectedWorkspaceId ? (
-        <div className="py-16 text-center text-brand-text-muted font-mono text-xs uppercase border border-dashed border-brand-border rounded-2xl">Select a workspace to manage brands.</div>
+        <div className="py-16 text-center border-2 border-dashed border-brand-border/50 rounded-2xl text-brand-text-muted font-mono text-xs">Select a workspace to manage brands.</div>
       ) : loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{[1,2,3].map(i => <div key={i} className="h-40 bg-brand-surface border border-brand-border rounded-2xl animate-pulse" />)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1,2,3].map(i => <SKELETON_CARD key={i} />)}</div>
       ) : error ? (
-        <div className="py-16 text-center text-brand-danger font-mono text-sm flex flex-col items-center gap-2"><AlertTriangle className="w-6 h-6" />Failed to load brands.<button onClick={fetchBrands} className="mt-2 px-4 py-1.5 bg-brand-elevated rounded-lg text-xs font-bold">Retry</button></div>
-      ) : brands.length === 0 ? (
-        <div className="py-16 text-center text-brand-text-muted font-mono text-xs uppercase border border-dashed border-brand-border rounded-2xl">No brands in this workspace yet.</div>
+        <div className="py-12 text-center text-red-400 font-mono text-sm">Failed to load. <button onClick={fetchBrands} className="text-brand-primary hover:underline">Retry</button></div>
+      ) : filteredBrands.length === 0 ? (
+        <div className="py-16 text-center border-2 border-dashed border-brand-border/50 rounded-2xl text-brand-text-muted font-mono text-xs">
+          {searchQuery ? 'No brands match your search.' : 'No brands in this workspace yet.'}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {brands.map((b, idx) => (
-            <motion.div key={b.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * idx }}
-              className="bg-brand-surface border border-brand-border rounded-2xl p-5 hover:border-brand-primary/30 transition-all">
-              <div className="flex items-start justify-between mb-3"><h3 className="font-bold text-brand-text text-sm">{b.name}</h3></div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {b.tone && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase bg-brand-elevated text-brand-text-muted">{b.tone}</span>}
-                {b.language && <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase bg-brand-elevated text-brand-text-muted">{b.language}</span>}
-                {b.ai_profile_id && (
-                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase bg-brand-primary/10 text-brand-primary flex items-center gap-1">
-                    <Bot className="w-3 h-3" /> AI Linked
-                  </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredBrands.map((b, idx) => (
+              <motion.div key={b.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5 hover:border-brand-primary/30 transition-all group">
+                
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-primary/30 to-brand-accent/30 flex items-center justify-center text-xs font-bold text-white">
+                      {b.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <h3 className="font-bold text-white text-sm">{b.name}</h3>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg hover:bg-brand-elevated text-brand-text-muted hover:text-white"><Edit2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setConfirmDelete(b)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-brand-text-muted hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {b.tone && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-brand-elevated text-brand-text-muted border border-brand-border/30">{b.tone}</span>}
+                  {b.language && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-brand-elevated text-brand-text-muted border border-brand-border/30 flex items-center gap-1"><Globe className="w-2.5 h-2.5" />{b.language}</span>}
+                  {b.ai_profile_id && (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-violet-500/10 text-violet-400 border border-violet-500/20 flex items-center gap-1">
+                      <Bot className="w-2.5 h-2.5" /> AI
+                    </span>
+                  )}
+                </div>
+
+                {b.audience && (
+                  <p className="text-[10px] text-brand-text-muted font-mono flex items-center gap-1.5 mb-3">
+                    <Users className="w-3 h-3" /> {b.audience}
+                  </p>
                 )}
-              </div>
-              {b.audience && <p className="text-xs text-brand-text-muted mb-4">Audience: {b.audience}</p>}
-              <div className="flex justify-end gap-2 pt-3 border-t border-brand-border">
-                <button onClick={() => openEdit(b)} className="p-1.5 hover:bg-brand-elevated rounded text-brand-text-muted hover:text-brand-text transition-colors"><Edit2 className="w-4 h-4" /></button>
-                <button onClick={() => setConfirmDelete(b)} className="p-1.5 hover:bg-brand-danger/20 rounded text-brand-text-muted hover:text-brand-danger transition-colors"><Trash2 className="w-4 h-4" /></button>
-              </div>
-            </motion.div>
-          ))}
+
+                {b.hashtags && (
+                  <div className="flex flex-wrap gap-1 pt-3 border-t border-brand-border/30">
+                    {(Array.isArray(b.hashtags) ? b.hashtags : String(b.hashtags).split(',').map(t => t.trim()).filter(Boolean)).slice(0, 4).map((tag: string) => (
+                      <span key={tag} className="text-[9px] font-mono text-sky-400 flex items-center gap-0.5">
+                        <Hash className="w-2.5 h-2.5" />{tag.replace('#', '')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
+      {/* Delete Modal */}
       <AnimatePresence>
         {confirmDelete && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(null)}>
-            <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-              <h3 className="text-sm font-bold text-brand-text mb-2">Delete Brand?</h3>
-              <p className="text-xs text-brand-text-muted mb-5">This will permanently remove "{confirmDelete.name}".</p>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 bg-brand-elevated border border-brand-border text-brand-text-muted rounded-xl text-sm font-semibold">Cancel</button>
-                <button onClick={handleDelete} disabled={deleting} className="px-4 py-2 bg-brand-danger text-white rounded-xl text-sm font-semibold disabled:opacity-50">{deleting ? 'Deleting...' : 'Delete'}</button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmDelete(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-brand-surface border border-brand-border/50 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
-            </div>
-          </div>
+              <h3 className="text-sm font-bold text-white text-center">Delete "{confirmDelete.name}"?</h3>
+              <p className="text-xs text-brand-text-muted text-center mt-1 mb-5">This cannot be undone.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-2 rounded-xl bg-brand-surface border border-brand-border text-brand-text-muted text-xs font-semibold">Cancel</button>
+                <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2 rounded-xl bg-red-500 text-white text-xs font-semibold disabled:opacity-50">{deleting ? 'Deleting…' : 'Delete'}</button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
