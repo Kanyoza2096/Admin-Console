@@ -77,27 +77,47 @@ export interface PayloadLog {
   response: any;
 }
 
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const POLLING_INTERVAL = import.meta.env.VITE_POLLING_INTERVAL
+  ? parseInt(import.meta.env.VITE_POLLING_INTERVAL)
+  : 120_000;
+
+const MAX_MESSAGES = 20;
+const MAX_POSTS = 20;
+const MAX_ALERTS = 50;
+const MAX_PAYLOADS = 50;
+const MAX_LATENCY_HISTORY = 60;
+const MAX_HTTP_LOGS = 50;
+const MAX_HEALTH_MATRIX = 20;
+
+// ── Store ──────────────────────────────────────────────────────────────────
+
 interface AppState {
+  // Auth
   isAuthenticated: boolean;
   login: () => void;
   logout: () => void;
 
+  // Theme
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 
+  // Tenancy
   currentTenant: string;
   setCurrentTenant: (tenant: string) => void;
-
   selectedWorkspaceId: string | number | null;
   setSelectedWorkspaceId: (id: string | number | null) => void;
   selectedBrandId: string | number | null;
   setSelectedBrandId: (id: string | number | null) => void;
-  
+
+  // Connection
   wsEndpoint: string;
   restEndpoint: string;
   masterToken: string;
   setConnectionParams: (params: { wsEndpoint?: string; restEndpoint?: string; masterToken?: string }) => void;
 
+  // Service Keys
   supabaseUrl: string;
   supabaseAnonKey: string;
   geminiKey: string;
@@ -109,8 +129,9 @@ interface AppState {
   fbPageAccessToken: string;
   fbAppSecret: string;
   isUsingLiveBackendData: boolean;
-  setServiceKeys: (keys: { supabaseUrl?: string; supabaseAnonKey?: string; geminiKey?: string; githubToken?: string; githubRepo?: string; githubBranch?: string; fbPageId?: string; fbVerifyToken?: string; fbPageAccessToken?: string; fbAppSecret?: string }) => void;
+  setServiceKeys: (keys: Record<string, string>) => void;
 
+  // SocketIO
   socket: Socket | null;
   socketConnected: boolean;
   socketTransport: 'polling' | 'websocket' | null;
@@ -120,27 +141,26 @@ interface AppState {
   connectSocket: () => void;
   disconnectSocket: () => void;
 
+  // Live Data
   messages: LiveMessage[];
   addMessage: (msg: LiveMessage) => void;
   isStreamPaused: boolean;
   setStreamPaused: (paused: boolean) => void;
-
   healthMatrix: SystemHealth[];
   updateHealth: (health: SystemHealth[]) => void;
-
   guardianAlerts: GuardianAlert[];
   addAlert: (alert: GuardianAlert) => void;
-
   recentPosts: Post[];
   addPost: (post: Post) => void;
-
   payloads: PayloadLog[];
   addPayload: (payload: PayloadLog) => void;
 
+  // Notifications
   lastNotification: LiveNotification | null;
   dismissNotification: () => void;
   triggerNotification: (n: TriggerNotificationInput) => void;
 
+  // Stats
   stats: {
     messagesToday: number;
     postsPublished: number;
@@ -151,36 +171,63 @@ interface AppState {
   };
   updateStats: (partial: Partial<AppState['stats']>) => void;
 
+  // UI State
   isTerminalOpen: boolean;
   toggleTerminal: () => void;
   pendingCommand: string | null;
   setPendingCommand: (cmd: string | null) => void;
-
   personaMood: 'analytical' | 'professional' | 'creative' | 'urgent';
   setPersonaMood: (mood: AppState['personaMood']) => void;
 
+  // Latency
   latencyHistory: number[];
   pushLatency: (ms: number) => void;
 
+  // HTTP Logs
   httpLogs: HttpLog[];
   addHttpLog: (log: HttpLog) => void;
   clearHttpLogs: () => void;
 
+  // Data Fetching
   fetchInitialData: () => Promise<void>;
-
   backendConfig: Record<string, any> | null;
   realtimeChannel: any;
   pollingTimer: ReturnType<typeof setInterval> | null;
   startRealtimeSubscriptions: () => void;
   stopRealtimeSubscriptions: () => void;
+
+  // Reset
+  resetData: () => void;
 }
 
-const INITIAL_HEALTH: SystemHealth[] = [];
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function buildHealthMatrix(services: Record<string, any>): SystemHealth[] {
+  return Object.entries(services).map(([name, svc]: [string, any]) => ({
+    id: name,
+    name: svc.page_name || name.charAt(0).toUpperCase() + name.slice(1),
+    status: svc.status === 'ok' ? 'online' : svc.status === 'degraded' ? 'degraded' : 'offline',
+    latency: svc.latency_ms ?? 0,
+    lastChecked: Date.now(),
+    uptime: svc.status === 'ok' ? 99.9 : svc.status === 'degraded' ? 85.0 : 0,
+  }));
+}
+
+function getAuthHeaders(masterToken: string): Record<string, string> {
+  return masterToken ? {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${masterToken}`,
+  } : { 'Content-Type': 'application/json' };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 export const useStore = create<AppState>((set, get) => ({
+  
+  // ── Auth ─────────────────────────────────────────────────────────────────
+
   isAuthenticated: false,
   login: () => {
-    // Ensure restEndpoint always has /api/v1
     const stored = localStorage.getItem('rest_endpoint');
     if (stored && !stored.includes('/api/v1')) {
       localStorage.setItem('rest_endpoint', stored.replace(/\/$/, '') + '/api/v1');
@@ -190,27 +237,20 @@ export const useStore = create<AppState>((set, get) => ({
   logout: () => {
     get().disconnectSocket();
     get().stopRealtimeSubscriptions();
-    
-    // Security: Clear sensitive keys from localStorage on logout
     const keysToRemove = [
       'master_token', 'supabase_url', 'supabase_anon_key', 'gemini_key',
       'github_token', 'github_repo', 'github_branch', 'fb_page_id',
       'fb_verify_token', 'fb_page_access_token', 'fb_app_secret',
-      'kanyoza_authenticated'
+      'kanyoza_authenticated',
     ];
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    set({ 
-      isAuthenticated: false,
-      masterToken: '',
-      supabaseUrl: '',
-      supabaseAnonKey: '',
-      geminiKey: '',
-      githubToken: '',
-      fbPageAccessToken: '',
-      fbAppSecret: ''
+    set({
+      isAuthenticated: false, masterToken: '', supabaseUrl: '', supabaseAnonKey: '',
+      geminiKey: '', githubToken: '', fbPageAccessToken: '', fbAppSecret: '',
     });
   },
+
+  // ── Theme ────────────────────────────────────────────────────────────────
 
   theme: (localStorage.getItem('theme') as 'dark' | 'light') || 'dark',
   toggleTheme: () => {
@@ -219,12 +259,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ theme: next });
   },
 
+  // ── Tenancy ──────────────────────────────────────────────────────────────
+
   currentTenant: localStorage.getItem('current_tenant') || 'Kanyoza Systems',
   setCurrentTenant: (tenant) => {
     localStorage.setItem('current_tenant', tenant);
     set({ currentTenant: tenant });
   },
-
   selectedWorkspaceId: localStorage.getItem('selected_workspace_id') || null,
   setSelectedWorkspaceId: (id) => {
     if (id === null) localStorage.removeItem('selected_workspace_id');
@@ -239,26 +280,25 @@ export const useStore = create<AppState>((set, get) => ({
     set({ selectedBrandId: id });
   },
 
+  // ── Connection ───────────────────────────────────────────────────────────
+
   wsEndpoint: localStorage.getItem('ws_endpoint') || import.meta.env.VITE_WS_ENDPOINT || 'wss://kanyoza-systems-bot.onrender.com',
   restEndpoint: localStorage.getItem('rest_endpoint') || import.meta.env.VITE_REST_ENDPOINT || 'https://kanyoza-systems-bot.onrender.com/api/v1',
   masterToken: localStorage.getItem('master_token') || import.meta.env.VITE_MASTER_TOKEN || '',
   setConnectionParams: (params) => {
-  const previousWsEndpoint = get().wsEndpoint;
+    const previousWsEndpoint = get().wsEndpoint;
+    if (params.wsEndpoint !== undefined) localStorage.setItem('ws_endpoint', params.wsEndpoint);
+    if (params.restEndpoint !== undefined) localStorage.setItem('rest_endpoint', params.restEndpoint);
+    if (params.masterToken !== undefined) localStorage.setItem('master_token', params.masterToken);
+    set((state) => ({ ...state, ...params }));
+    get().fetchInitialData();
+    if (params.wsEndpoint && params.wsEndpoint !== previousWsEndpoint) {
+      get().disconnectSocket();
+      get().connectSocket();
+    }
+  },
 
-  if (params.wsEndpoint !== undefined) localStorage.setItem('ws_endpoint', params.wsEndpoint);
-  if (params.restEndpoint !== undefined) localStorage.setItem('rest_endpoint', params.restEndpoint);
-  if (params.masterToken !== undefined) localStorage.setItem('master_token', params.masterToken);
-
-  set((state) => ({ ...state, ...params }));
-  
-  // Re-fetch all data with new credentials
-  get().fetchInitialData();
-
-  if (params.wsEndpoint && params.wsEndpoint !== previousWsEndpoint) {
-    get().disconnectSocket();
-    get().connectSocket();
-  }
-},
+  // ── Service Keys ─────────────────────────────────────────────────────────
 
   supabaseUrl: localStorage.getItem('supabase_url') || import.meta.env.VITE_SUPABASE_URL || '',
   supabaseAnonKey: localStorage.getItem('supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '',
@@ -272,21 +312,15 @@ export const useStore = create<AppState>((set, get) => ({
   fbAppSecret: localStorage.getItem('fb_app_secret') || '',
   isUsingLiveBackendData: false,
   setServiceKeys: (keys) => {
-    if (keys.supabaseUrl !== undefined) localStorage.setItem('supabase_url', keys.supabaseUrl);
-    if (keys.supabaseAnonKey !== undefined) localStorage.setItem('supabase_anon_key', keys.supabaseAnonKey);
-    if (keys.geminiKey !== undefined) localStorage.setItem('gemini_key', keys.geminiKey);
-    if (keys.githubToken !== undefined) localStorage.setItem('github_token', keys.githubToken);
-    if (keys.githubRepo !== undefined) localStorage.setItem('github_repo', keys.githubRepo);
-    if (keys.githubBranch !== undefined) localStorage.setItem('github_branch', keys.githubBranch);
-    if (keys.fbPageId !== undefined) localStorage.setItem('fb_page_id', keys.fbPageId);
-    if (keys.fbVerifyToken !== undefined) localStorage.setItem('fb_verify_token', keys.fbVerifyToken);
-    if (keys.fbPageAccessToken !== undefined) localStorage.setItem('fb_page_access_token', keys.fbPageAccessToken);
-    if (keys.fbAppSecret !== undefined) localStorage.setItem('fb_app_secret', keys.fbAppSecret);
-
+    Object.entries(keys).forEach(([key, value]) => {
+      if (value !== undefined) localStorage.setItem(key, String(value));
+    });
     set((state) => ({ ...state, ...keys }));
     refreshSupabaseClient();
     get().fetchInitialData();
   },
+
+  // ── SocketIO ─────────────────────────────────────────────────────────────
 
   socket: null,
   socketConnected: false,
@@ -294,32 +328,25 @@ export const useStore = create<AppState>((set, get) => ({
   socketError: null,
   socketReconnectAttempts: 0,
   socketLastEventAt: null,
+
   connectSocket: () => {
     if (get().socket) return;
-    
     const rawBase = get().wsEndpoint.replace(/\/+$/, '');
-    const base = rawBase
-      .replace(/^wss:\/\//i, 'https://')
-      .replace(/^ws:\/\//i,  'http://');
+    const base = rawBase.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://');
     const socket = io(`${base}/dashboard`, {
       transports: ['polling', 'websocket'],
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
       reconnectionAttempts: Infinity,
       timeout: 20000,
-      auth: {
-        token: get().masterToken
-      }
+      auth: { token: get().masterToken },
     });
 
     socket.on('connect', () => {
-      const transport = socket.io.engine?.transport?.name === 'websocket' ? 'websocket' : 'polling';
       set({
-        socketConnected: true,
-        socketError: null,
-        socketReconnectAttempts: 0,
-        socketTransport: transport,
-        socketLastEventAt: Date.now(),
+        socketConnected: true, socketError: null,
+        socketReconnectAttempts: 0, socketLastEventAt: Date.now(),
+        socketTransport: socket.io.engine?.transport?.name === 'websocket' ? 'websocket' : 'polling',
       });
     });
 
@@ -328,235 +355,145 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     socket.on('disconnect', (reason: string) => {
-      set({
-        socketConnected: false,
-        socketTransport: null,
-        socketError: `Disconnected: ${reason}`,
-        socketLastEventAt: Date.now(),
-      });
+      set({ socketConnected: false, socketTransport: null, socketError: `Disconnected: ${reason}`, socketLastEventAt: Date.now() });
     });
 
     socket.on('connect_error', (err: any) => {
-      const message = err?.message || String(err) || 'Unknown connection error';
-      set({
-        socketConnected: false,
-        socketError: message,
-        socketLastEventAt: Date.now(),
-      });
+      set({ socketConnected: false, socketError: err?.message || String(err), socketLastEventAt: Date.now() });
     });
 
-    socket.io.on('reconnect_attempt', (attempt: number) => {
-      set({ socketReconnectAttempts: attempt, socketLastEventAt: Date.now() });
-    });
+    socket.io.on('reconnect_attempt', (attempt: number) => set({ socketReconnectAttempts: attempt, socketLastEventAt: Date.now() }));
+    socket.io.on('reconnect', () => set({ socketConnected: true, socketError: null, socketReconnectAttempts: 0, socketLastEventAt: Date.now() }));
+    socket.io.on('reconnect_error', (err: any) => set({ socketError: err?.message || String(err), socketLastEventAt: Date.now() }));
+    socket.io.on('reconnect_failed', () => set({ socketError: 'Reconnection failed — backend may be unreachable.', socketLastEventAt: Date.now() }));
 
-    socket.io.on('reconnect', (attempt: number) => {
-      set({
-        socketConnected: true,
-        socketError: null,
-        socketReconnectAttempts: 0,
-        socketLastEventAt: Date.now(),
-      });
-    });
-
-    socket.io.on('reconnect_error', (err: any) => {
-      const message = err?.message || String(err) || 'Reconnect error';
-      set({ socketError: message, socketLastEventAt: Date.now() });
-    });
-
-    socket.io.on('reconnect_failed', () => {
-      set({
-        socketError: 'Reconnection failed — max attempts reached. Backend may be unreachable or crashed.',
-        socketLastEventAt: Date.now(),
-      });
-    });
-    
+    // ── Event Handlers ──────────────────────────────────────────────────
     socket.on('stats', (data: any) => {
       if (!data || typeof data !== 'object') return;
-      const c = data.counters || {};
-      const a = data.analytics || {};
       get().updateStats({
-        messagesToday:  data.messages_today   ?? a.messages_today  ?? c.messages_today  ?? get().stats.messagesToday,
-        postsPublished: data.posts_published  ?? a.posts_published ?? c.posts_today      ?? get().stats.postsPublished,
-        activeUsers:    data.active_users     ?? c.active_connections                    ?? get().stats.activeUsers,
-        apiCalls:       data.api_calls_today  ?? c.events_emitted                        ?? get().stats.apiCalls,
-        guardianIssues: data.guardian_issues  ?? get().stats.guardianIssues,
+        messagesToday: data.messages_today ?? data.counters?.messages_today ?? get().stats.messagesToday,
+        postsPublished: data.posts_published ?? data.counters?.posts_today ?? get().stats.postsPublished,
+        activeUsers: data.active_users ?? data.counters?.active_connections ?? get().stats.activeUsers,
+        apiCalls: data.api_calls_today ?? data.counters?.events_emitted ?? get().stats.apiCalls,
+        guardianIssues: data.guardian_issues ?? get().stats.guardianIssues,
       });
-      if (data.services && typeof data.services === 'object') {
-        const matrix: SystemHealth[] = Object.entries(data.services).map(([name, svc]: [string, any]) => ({
-          id:          name,
-          name:        (svc as any).page_name || name.charAt(0).toUpperCase() + name.slice(1),
-          status:      (svc as any).status === 'ok' ? 'online' : (svc as any).status === 'degraded' ? 'degraded' : 'offline',
-          latency:     (svc as any).latency_ms ?? 0,
-          lastChecked: Date.now(),
-          uptime:      (svc as any).status === 'ok' ? 99.9 : (svc as any).status === 'degraded' ? 85.0 : 0,
-        })) as SystemHealth[];
-        get().updateHealth(matrix);
-      }
+      if (data.services) get().updateHealth(buildHealthMatrix(data.services));
     });
 
     socket.on('new_message', (msg: LiveMessage) => {
-      if (!get().isStreamPaused) {
-        get().addMessage(msg);
-      }
-      set(state => ({ stats: { ...state.stats, messagesToday: state.stats.messagesToday + 1 } }));
+      if (!get().isStreamPaused) get().addMessage(msg);
+      set(s => ({ stats: { ...s.stats, messagesToday: s.stats.messagesToday + 1 } }));
     });
 
     socket.on('post_published', (post: Post) => {
       get().addPost(post);
-      set(state => ({ stats: { ...state.stats, postsPublished: state.stats.postsPublished + 1 } }));
+      set(s => ({ stats: { ...s.stats, postsPublished: s.stats.postsPublished + 1 } }));
     });
 
-    const _handleApiPayload = (data?: any) => {
-       set(state => ({ stats: { ...state.stats, apiCalls: state.stats.apiCalls + 1 } }));
-       if (data && typeof data === 'object') {
-         get().addPayload({
-           id:       data.id       || `req_${Math.floor(Math.random() * 900000 + 100000)}`,
-           time:     data.time     || new Date().toLocaleTimeString(),
-           method:   data.method   || 'POST',
-           endpoint: data.endpoint || data.path || '/api/v1/webhook',
-           status:   data.status   || 200,
-           latency:  data.latency  || `${Math.floor(Math.random() * 200 + 50)}ms`,
-           type:     data.type     || 'inbound',
-           request:  data.request  || {},
-           response: data.response || {}
-         });
-       }
-    };
-    socket.on('api_payload', _handleApiPayload);
-    socket.on('api_call',    _handleApiPayload);
-
-    socket.on('payload_inbound', (data?: any) => {
+    const handlePayload = (data?: any) => {
+      set(s => ({ stats: { ...s.stats, apiCalls: s.stats.apiCalls + 1 } }));
       if (data && typeof data === 'object') {
         get().addPayload({
-          id:       data.id       || `fb_${Math.floor(Math.random() * 900000 + 100000)}`,
-          time:     data.time     || new Date().toLocaleTimeString(),
-          method:   'POST',
-          endpoint: data.endpoint || '/webhook/facebook',
-          status:   data.status   || 200,
-          latency:  data.latency  || '0ms',
-          type:     'inbound',
-          request:  data.payload  || data.request || data,
+          id: data.id || `req_${Math.floor(Math.random() * 900000 + 100000)}`,
+          time: data.time || new Date().toLocaleTimeString(),
+          method: data.method || 'POST',
+          endpoint: data.endpoint || data.path || '/api/v1/webhook',
+          status: data.status || 200,
+          latency: data.latency || `${Math.floor(Math.random() * 200 + 50)}ms`,
+          type: data.type || 'inbound',
+          request: data.request || data.payload || data,
           response: data.response || {},
         });
       }
+    };
+    socket.on('api_payload', handlePayload);
+    socket.on('api_call', handlePayload);
+    socket.on('payload', handlePayload);
+    socket.on('traffic', handlePayload);
+
+    socket.on('payload_inbound', (data?: any) => {
+      if (data) handlePayload({ ...data, type: 'inbound', endpoint: data.endpoint || '/webhook/facebook' });
     });
 
-    socket.on('payload', (data?: any) => {
-       if (data && typeof data === 'object') {
-         get().addPayload(data);
-       }
-    });
-
-    socket.on('traffic', (data?: any) => {
-       if (data && typeof data === 'object') {
-         get().addPayload(data);
-       }
-    });
-
-    socket.on('service_status', (healthUpdates: SystemHealth[]) => {
-      get().updateHealth(healthUpdates);
-    });
+    socket.on('service_status', (healthUpdates: SystemHealth[]) => get().updateHealth(healthUpdates));
 
     socket.on('scan_complete', (data: any) => {
-      const alert: GuardianAlert = {
-        id:       data.id       || data.scan_id || `scan_${Date.now()}`,
-        severity: data.severity || (data.critical > 0 ? 'CRITICAL' : data.high > 0 ? 'HIGH' : 'MEDIUM'),
-        title:    data.title    || data.summary || `Scan complete — ${data.findings ?? 0} finding(s)`,
-        time:     data.time     || Date.now(),
-      };
-      get().addAlert(alert);
-      set(state => ({ stats: { ...state.stats, guardianIssues: state.stats.guardianIssues + 1 } }));
+      get().addAlert({
+        id: data.id || `scan_${Date.now()}`,
+        severity: data.severity || (data.critical > 0 ? 'CRITICAL' : 'HIGH'),
+        title: data.title || `Scan complete — ${data.findings ?? 0} finding(s)`,
+        time: data.time || Date.now(),
+      });
+      set(s => ({ stats: { ...s.stats, guardianIssues: s.stats.guardianIssues + 1 } }));
     });
 
     set({ socket });
   },
+
   disconnectSocket: () => {
     const { socket } = get();
     if (socket) {
       socket.disconnect();
-      set({
-        socket: null,
-        socketConnected: false,
-        socketTransport: null,
-        socketError: null,
-        socketReconnectAttempts: 0,
-      });
+      set({ socket: null, socketConnected: false, socketTransport: null, socketError: null, socketReconnectAttempts: 0 });
     }
   },
 
+  // ── Live Data ────────────────────────────────────────────────────────────
+
   messages: [],
-  addMessage: (msg) => set(state => ({ 
-    messages: [msg, ...state.messages].slice(0, 20) 
-  })),
+  addMessage: (msg) => set(state => ({ messages: [msg, ...state.messages].slice(0, MAX_MESSAGES) })),
   isStreamPaused: false,
   setStreamPaused: (paused) => set({ isStreamPaused: paused }),
 
-  healthMatrix: INITIAL_HEALTH,
+  healthMatrix: [],
   updateHealth: (updates) => set(state => {
     const newHealth = [...state.healthMatrix];
     updates.forEach(u => {
       const idx = newHealth.findIndex(h => h.id === u.id);
-      if (idx !== -1) newHealth[idx] = { ...newHealth[idx], ...u };
+      if (idx !== -1) newHealth[idx] = { ...newHealth[idx], ...u, lastChecked: Date.now() };
+      else newHealth.push({ ...u, lastChecked: Date.now() });
     });
-    return { healthMatrix: newHealth };
+    return { healthMatrix: newHealth.slice(0, MAX_HEALTH_MATRIX) };
   }),
 
   guardianAlerts: [],
   addAlert: (alert) => set(state => ({
-    guardianAlerts: [alert, ...state.guardianAlerts].slice(0, 50),
-    lastNotification: {
-      id:       `n_${Date.now()}`,
-      type:     'alert',
-      title:    alert.title,
-      subtitle: alert.severity,
-      severity: alert.severity,
-    },
+    guardianAlerts: [alert, ...state.guardianAlerts].slice(0, MAX_ALERTS),
+    lastNotification: { id: `n_${Date.now()}`, type: 'alert', title: alert.title, subtitle: alert.severity, severity: alert.severity },
   })),
 
   recentPosts: [],
   addPost: (post) => set(state => ({
-    recentPosts: [post, ...state.recentPosts].slice(0, 20),
-    lastNotification: {
-      id:       `n_${Date.now()}`,
-      type:     'post',
-      title:    post.title,
-      subtitle: post.platform,
-    },
+    recentPosts: [post, ...state.recentPosts].slice(0, MAX_POSTS),
+    lastNotification: { id: `n_${Date.now()}`, type: 'post', title: post.title, subtitle: post.platform },
   })),
 
   payloads: [],
-  addPayload: (payload) => set(state => ({
-    payloads: [payload, ...state.payloads].slice(0, 50)
-  })),
+  addPayload: (payload) => set(state => ({ payloads: [payload, ...state.payloads].slice(0, MAX_PAYLOADS) })),
+
+  // ── Notifications ────────────────────────────────────────────────────────
 
   lastNotification: null,
   dismissNotification: () => set({ lastNotification: null }),
   triggerNotification: (n) => {
-    const mappedType = 
-      n.type === 'success' || n.type === 'info' || n.type === 'warning'
-        ? 'message'
-        : n.type;
-    const finalSubtitle = n.subtitle || n.message || '';
+    const mappedType = ['success', 'info', 'warning'].includes(n.type) ? 'message' : n.type;
     set({
       lastNotification: {
         id: Math.random().toString(36).substring(7),
         type: mappedType as 'alert' | 'post' | 'message' | 'payload',
         title: n.title,
-        subtitle: finalSubtitle,
+        subtitle: n.subtitle || n.message || '',
         severity: n.severity,
-      }
+      },
     });
   },
 
-  stats: {
-    messagesToday: 0,
-    postsPublished: 0,
-    activeUsers: 0,
-    apiCalls: 0,
-    guardianIssues: 0,
-    revenueMonthly: 0,
-  },
+  // ── Stats ────────────────────────────────────────────────────────────────
+
+  stats: { messagesToday: 0, postsPublished: 0, activeUsers: 0, apiCalls: 0, guardianIssues: 0, revenueMonthly: 0 },
   updateStats: (partial) => set(state => ({ stats: { ...state.stats, ...partial } })),
+
+  // ── UI State ─────────────────────────────────────────────────────────────
 
   isTerminalOpen: false,
   toggleTerminal: () => set(state => ({ isTerminalOpen: !state.isTerminalOpen })),
@@ -569,131 +506,66 @@ export const useStore = create<AppState>((set, get) => ({
     set({ personaMood: mood });
   },
 
+  // ── Latency ──────────────────────────────────────────────────────────────
+
   latencyHistory: [],
-  pushLatency: (ms) => set(state => ({
-    latencyHistory: [...state.latencyHistory.slice(-59), ms],
-  })),
+  pushLatency: (ms) => set(state => ({ latencyHistory: [...state.latencyHistory.slice(-(MAX_LATENCY_HISTORY - 1)), ms] })),
+
+  // ── HTTP Logs ────────────────────────────────────────────────────────────
 
   httpLogs: [],
-  addHttpLog: (log) => set(state => ({
-    httpLogs: [log, ...state.httpLogs].slice(0, 50)
-  })),
+  addHttpLog: (log) => set(state => ({ httpLogs: [log, ...state.httpLogs].slice(0, MAX_HTTP_LOGS) })),
   clearHttpLogs: () => set({ httpLogs: [] }),
+
+  // ── Data Fetching ────────────────────────────────────────────────────────
 
   fetchInitialData: async () => {
     const { restEndpoint, masterToken } = get();
+    const baseUrl = restEndpoint.replace(/\/+$/, '');
+    const headers = getAuthHeaders(masterToken);
     let loadedLive = false;
 
-    if (!masterToken) {
-      // Missing token handled by UI
-    }
-
+    // Supabase fallback
     if (isSupabaseConfigured()) {
       try {
-        const { data: supaMsgs } = await supabase.from('messages').select('*').limit(20);
-        if (supaMsgs && supaMsgs.length > 0) {
-          set({ messages: supaMsgs });
-          loadedLive = true;
+        const tables = ['messages', 'posts', 'alerts', 'payloads'] as const;
+        for (const table of tables) {
+          const { data } = await supabase.from(table).select('*').limit(20);
+          if (data?.length) {
+            if (table === 'messages') set({ messages: data as any });
+            if (table === 'posts') set({ recentPosts: data as any });
+            if (table === 'alerts') set({ guardianAlerts: data as any });
+            if (table === 'payloads') set({ payloads: data as any });
+            loadedLive = true;
+          }
         }
-
-        const { data: supaPosts } = await supabase.from('posts').select('*').limit(20);
-        if (supaPosts && supaPosts.length > 0) {
-          set({ recentPosts: supaPosts });
-          loadedLive = true;
-        }
-
-        const { data: supaAlerts } = await supabase.from('alerts').select('*').limit(20);
-        if (supaAlerts && supaAlerts.length > 0) {
-          set({ guardianAlerts: supaAlerts });
-          loadedLive = true;
-        }
-
-        const { data: supaPayloads } = await supabase.from('payloads').select('*').limit(20);
-        if (supaPayloads && supaPayloads.length > 0) {
-          set({ payloads: supaPayloads });
-          loadedLive = true;
-        }
-      } catch (err) {
-        // Suppress warning
-      }
+      } catch { /* silent */ }
     }
 
-    if (restEndpoint) {
+    // REST endpoints
+    if (restEndpoint && masterToken) {
       try {
-        const baseUrl = restEndpoint.endsWith('/') ? restEndpoint.slice(0, -1) : restEndpoint;
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (masterToken) {
-          headers['Authorization'] = `Bearer ${masterToken}`;
-          headers['X-API-Token'] = masterToken;
-          headers['x-api-key'] = masterToken;
-        }
+        const endpoints = [
+          { path: '/dashboard/live', handler: (d: any) => get().updateStats({
+            messagesToday: d.messages_today ?? d.counters?.messages_today ?? 0,
+            postsPublished: d.posts_published ?? d.counters?.posts_today ?? 0,
+            activeUsers: d.active_users ?? d.counters?.active_connections ?? 0,
+            apiCalls: d.api_calls_today ?? d.counters?.events_emitted ?? 0,
+          })},
+          { path: '/messages', handler: (d: any) => { if (d?.messages?.length) set({ messages: d.messages }); }},
+          { path: '/posts', handler: (d: any) => { if (d?.posts?.length) set({ recentPosts: d.posts }); }},
+          { path: '/health/deep', handler: (d: any) => { if (d?.services) set({ healthMatrix: buildHealthMatrix(d.services) }); }},
+        ];
 
-        const statsRes = await fetch(`${baseUrl}/dashboard/live`, { headers }).catch(() => null);
-        if (statsRes && statsRes.ok) {
-          const d = await statsRes.json();
-          if (d) {
-            const c = d.counters || {};
-            const a = d.analytics || {};
-            get().updateStats({
-              messagesToday:  d.messages_today  ?? a.messages_today  ?? c.messages_today   ?? 0,
-              postsPublished: d.posts_published ?? a.posts_published ?? c.posts_today       ?? 0,
-              activeUsers:    d.active_users    ?? c.active_connections                     ?? 0,
-              apiCalls:       d.api_calls_today ?? c.events_emitted                         ?? 0,
-              guardianIssues: d.guardian_issues                                             ?? 0,
-            });
+        for (const ep of endpoints) {
+          const res = await fetch(`${baseUrl}${ep.path}`, { headers }).catch(() => null);
+          if (res?.ok) {
+            const data = await res.json();
+            ep.handler(data);
             loadedLive = true;
           }
         }
-
-        const msgsRes = await fetch(`${baseUrl}/messages`, { headers }).catch(() => null);
-        if (msgsRes && msgsRes.ok) {
-          const msgsData = await msgsRes.json();
-          const msgs = Array.isArray(msgsData)
-            ? msgsData
-            : Array.isArray(msgsData?.messages)
-              ? msgsData.messages
-              : null;
-          if (msgs && msgs.length > 0) {
-            set({ messages: msgs });
-            loadedLive = true;
-          }
-        }
-
-        const postsRes = await fetch(`${baseUrl}/posts`, { headers }).catch(() => null);
-        if (postsRes && postsRes.ok) {
-          const postsData = await postsRes.json();
-          const posts = Array.isArray(postsData)
-            ? postsData
-            : Array.isArray(postsData?.posts)
-              ? postsData.posts
-              : null;
-          if (posts && posts.length > 0) {
-            set({ recentPosts: posts });
-            loadedLive = true;
-          }
-        }
-
-        const healthRes = await fetch(`${baseUrl}/health/deep`, { headers }).catch(() => null);
-        if (healthRes && healthRes.ok) {
-          const healthData = await healthRes.json();
-          if (healthData?.services && typeof healthData.services === 'object') {
-            const matrix: SystemHealth[] = Object.entries(healthData.services).map(([name, svc]: [string, any]) => ({
-              id:           name,
-              name:         svc.page_name || name.charAt(0).toUpperCase() + name.slice(1),
-              status:       svc.status === 'ok' ? 'online' : svc.status === 'degraded' ? 'degraded' : 'offline',
-              latency:      svc.latency_ms ?? 0,
-              lastChecked:  Date.now(),
-              uptime:       svc.status === 'ok' ? 99.9 : svc.status === 'degraded' ? 85.0 : 0,
-            }));
-            set({ healthMatrix: matrix });
-            loadedLive = true;
-          }
-        }
-      } catch (err) {
-        // Suppress warning
-      }
+      } catch { /* silent */ }
     }
 
     set({ isUsingLiveBackendData: loadedLive });
@@ -705,107 +577,93 @@ export const useStore = create<AppState>((set, get) => ({
 
   startRealtimeSubscriptions: () => {
     get().stopRealtimeSubscriptions();
-
     const { restEndpoint, masterToken } = get();
-    const base = restEndpoint.replace(/\/+$/, '');
-    const headers: Record<string, string> = masterToken
-      ? { Authorization: `Bearer ${masterToken}` }
-      : {};
+    const baseUrl = restEndpoint.replace(/\/+$/, '');
+    const headers = getAuthHeaders(masterToken);
 
-    fetch(`${base}/status`, { headers })
+    // Initial status fetch
+    fetch(`${baseUrl}/status`, { headers })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) set({ backendConfig: data }); })
       .catch(() => {});
 
+    // Polling
     const timer = setInterval(async () => {
       if (document.visibilityState !== 'visible') return;
       try {
         const [sr, hr] = await Promise.allSettled([
-          fetch(`${base}/dashboard/live`, { headers }),
-          fetch(`${base}/health/deep`,    { headers }),
+          fetch(`${baseUrl}/dashboard/live`, { headers }),
+          fetch(`${baseUrl}/health/deep`, { headers }),
         ]);
         if (sr.status === 'fulfilled' && sr.value.ok) {
           const d = await sr.value.json();
           get().updateStats({
-            messagesToday:  d.messages_today  ?? get().stats.messagesToday,
+            messagesToday: d.messages_today ?? get().stats.messagesToday,
             postsPublished: d.posts_published ?? get().stats.postsPublished,
-            activeUsers:    d.active_users    ?? get().stats.activeUsers,
-            apiCalls:       d.api_calls_today ?? get().stats.apiCalls,
-            guardianIssues: d.guardian_issues ?? get().stats.guardianIssues,
+            activeUsers: d.active_users ?? get().stats.activeUsers,
+            apiCalls: d.api_calls_today ?? get().stats.apiCalls,
           });
           set({ isUsingLiveBackendData: true });
         }
         if (hr.status === 'fulfilled' && hr.value.ok) {
           const hd = await hr.value.json();
-          if (hd?.services && typeof hd.services === 'object') {
-            const matrix: SystemHealth[] = Object.entries(hd.services).map(([name, svc]: [string, any]) => ({
-              id:          name,
-              name:        svc.page_name || name.charAt(0).toUpperCase() + name.slice(1),
-              status:      svc.status === 'ok' ? 'online' : svc.status === 'degraded' ? 'degraded' : 'offline',
-              latency:     svc.latency_ms ?? 0,
-              lastChecked: Date.now(),
-              uptime:      svc.status === 'ok' ? 99.9 : svc.status === 'degraded' ? 85.0 : 0,
-            }));
-            set({ healthMatrix: matrix });
-          }
+          if (hd?.services) set({ healthMatrix: buildHealthMatrix(hd.services) });
         }
       } catch { /* ignore */ }
-    }, 120_000);
-
+    }, POLLING_INTERVAL);
     set({ pollingTimer: timer });
 
+    // Supabase realtime
     if (!isSupabaseConfigured()) return;
-
     const channel = supabase
-      .channel('kanyoza-live-v2')
+      .channel('kanyoza-live-v3')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ({ new: row }: any) => {
         if (!get().isStreamPaused) {
           get().addMessage({
-            id:        String(row.id    || `msg_${Date.now()}`),
-            user:      row.sender_id   || row.user     || 'Facebook User',
-            avatar:    row.avatar      || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.sender_id || 'User')}&background=4F46E5&color=fff`,
-            message:   row.content     || row.text     || row.message || '',
-            time:      new Date(row.created_at || Date.now()).getTime(),
-            sentiment: row.sentiment   || 'neutral',
+            id: String(row.id || `msg_${Date.now()}`),
+            user: row.sender_id || row.user || 'User',
+            avatar: row.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.sender_id || 'User')}&background=4F46E5&color=fff`,
+            message: row.content || row.text || row.message || '',
+            time: new Date(row.created_at || Date.now()).getTime(),
+            sentiment: row.sentiment || 'neutral',
           });
         }
         set(s => ({ stats: { ...s.stats, messagesToday: s.stats.messagesToday + 1 } }));
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, ({ new: row }: any) => {
         get().addPost({
-          id:         String(row.id         || `p_${Date.now()}`),
-          title:      row.title      || row.content || 'New Post',
-          platform:   row.platform   || 'facebook',
-          time:       new Date(row.created_at || Date.now()).getTime(),
+          id: String(row.id || `p_${Date.now()}`),
+          title: row.title || row.content || 'New Post',
+          platform: row.platform || 'facebook',
+          time: new Date(row.created_at || Date.now()).getTime(),
           engagement: row.engagement || 0,
-          thumbnail:  row.thumbnail  || 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=150&q=80',
+          thumbnail: row.thumbnail || '',
         });
         set(s => ({ stats: { ...s.stats, postsPublished: s.stats.postsPublished + 1 } }));
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alerts' }, ({ new: row }: any) => {
         get().addAlert({
-          id:       String(row.id       || `a_${Date.now()}`),
+          id: String(row.id || `a_${Date.now()}`),
           severity: row.severity || 'MEDIUM',
-          title:    row.title    || row.message || 'Security Alert',
-          time:     new Date(row.created_at || Date.now()).getTime(),
+          title: row.title || row.message || 'Security Alert',
+          time: new Date(row.created_at || Date.now()).getTime(),
         });
         set(s => ({ stats: { ...s.stats, guardianIssues: s.stats.guardianIssues + 1 } }));
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payloads' }, ({ new: row }: any) => {
         get().addPayload({
-          id:       String(row.id       || `req_${Date.now()}`),
-          time:     new Date(row.created_at || Date.now()).toLocaleTimeString(),
-          method:   row.method   || 'POST',
+          id: String(row.id || `req_${Date.now()}`),
+          time: new Date(row.created_at || Date.now()).toLocaleTimeString(),
+          method: row.method || 'POST',
           endpoint: row.endpoint || '/api/v1/webhook',
-          status:   row.status   || 200,
-          latency:  row.latency  || '100ms',
-          type:     row.type     || 'inbound',
-          request:  row.request  || {},
+          status: row.status || 200,
+          latency: row.latency || '100ms',
+          type: row.type || 'inbound',
+          request: row.request || {},
           response: row.response || {},
         });
       })
       .subscribe();
-
     set({ realtimeChannel: channel });
   },
 
@@ -815,4 +673,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (realtimeChannel) { supabase.removeChannel(realtimeChannel); set({ realtimeChannel: null }); }
   },
 
+  // ── Reset ────────────────────────────────────────────────────────────────
+
+  resetData: () => set({
+    messages: [], recentPosts: [], guardianAlerts: [], payloads: [],
+    healthMatrix: [],
+    stats: { messagesToday: 0, postsPublished: 0, activeUsers: 0, apiCalls: 0, guardianIssues: 0, revenueMonthly: 0 },
+    latencyHistory: [], httpLogs: [],
+    lastNotification: null,
+  }),
 }));
