@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
-import { Clock, Zap, RefreshCcw, Check, Activity, Calendar, Send, Pause, Play, Newspaper, MessageSquare, History, GitBranch } from 'lucide-react';
+import { 
+  Clock, Zap, RefreshCcw, Check, Activity, Calendar, Send, Pause, Play, 
+  Newspaper, MessageSquare, History, GitBranch, RotateCcw, Settings,
+  TrendingUp, BarChart3, Layers, AlertCircle
+} from 'lucide-react';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
 
 interface ScheduleConfig {
   content_hours_utc: number[];
@@ -13,17 +18,9 @@ interface ScheduleConfig {
 }
 
 interface WorkflowRun {
-  id?: string;
-  workflow?: string;
-  type?: string;
-  status?: string;
-  ok?: boolean;
-  ran_at?: string;
-  started_at?: string;
-  created_at?: string;
-  duration_ms?: number;
-  duration?: string;
-  topic?: string;
+  id?: string; workflow?: string; type?: string; status?: string;
+  ok?: boolean; ran_at?: string; started_at?: string; created_at?: string;
+  duration_ms?: number; duration?: string; topic?: string;
 }
 
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -32,6 +29,36 @@ function fmt24(h: number) {
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:00 ${h < 12 ? 'AM' : 'PM'}`;
 }
+
+// ── Timezone strip ─────────────────────────────────────────────────────────
+
+function TimezoneStrip({ hours, color, label }: { hours: number[]; color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[9px] font-mono font-bold uppercase text-brand-text-muted w-20 flex-shrink-0">{label}</span>
+      <div className="flex gap-0.5 flex-1">
+        {ALL_HOURS.map(h => (
+          <div key={h} className="flex-1 h-5 rounded-sm transition-colors"
+            style={{ backgroundColor: hours.includes(h) ? color : 'transparent', opacity: hours.includes(h) ? 0.9 : 0.15 }}
+            title={hours.includes(h) ? fmt24(h) : ''} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────
+
+const SkeletonBlock = () => (
+  <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5 animate-pulse space-y-3">
+    <div className="h-5 bg-brand-elevated rounded w-32" />
+    <div className="grid grid-cols-12 gap-2">
+      {[1,2,3,4,5,6,7,8,9,10,11,12].map(i => <div key={i} className="h-10 bg-brand-elevated rounded-xl" />)}
+    </div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function Scheduler() {
   const { restEndpoint, masterToken } = useStore();
@@ -43,7 +70,6 @@ export default function Scheduler() {
   const [queueSize, setQueueSize] = useState(0);
   const [lastPost, setLastPost] = useState<string | null>(null);
   const [history, setHistory] = useState<WorkflowRun[]>([]);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [contentHours, setContentHours] = useState<number[] | null>(null);
@@ -52,11 +78,6 @@ export default function Scheduler() {
 
   const headers = masterToken ? { 'Content-Type': 'application/json', Authorization: `Bearer ${masterToken}` } : {};
   const base = restEndpoint.replace(/\/+$/, '');
-
-  const showToast = (msg: string, ok: boolean) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const fetchAll = async () => {
     setLoading(true);
@@ -84,8 +105,8 @@ export default function Scheduler() {
         const d = await histRes.json();
         setHistory(d.history || d.workflows || []);
       }
-    } catch (err) {
-      showToast('Failed to load scheduler data', false);
+    } catch {
+      toast.error('Failed to load scheduler data');
     } finally {
       setLoading(false);
     }
@@ -93,15 +114,19 @@ export default function Scheduler() {
 
   useEffect(() => { fetchAll(); }, [restEndpoint]);
 
-  const apiAction = async (path: string, method = 'POST') => {
+  const apiAction = async (path: string, method = 'POST', successMsg?: string) => {
     setActionLoading(path);
     try {
       const res = await fetch(`${base}${path}`, { method, headers });
       const d = await res.json();
-      showToast(d.message || 'Action completed', res.ok);
-      fetchAll();
+      if (res.ok) {
+        toast.success(successMsg || d.message || 'Action completed');
+        fetchAll();
+      } else {
+        toast.error(d.error || 'Action failed');
+      }
     } catch (err: any) {
-      showToast(err.message || 'Action failed', false);
+      toast.error(err.message || 'Action failed');
     } finally {
       setActionLoading(null);
     }
@@ -111,24 +136,19 @@ export default function Scheduler() {
     setActionLoading('save');
     try {
       const res = await fetch(`${base}/schedule`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          content_hours_utc: contentHours || [],
-          news_hours_utc: newsHours || [],
-        }),
+        method: 'PUT', headers,
+        body: JSON.stringify({ content_hours_utc: contentHours || [], news_hours_utc: newsHours || [] }),
       });
       if (res.ok) {
-        setContentHours(null);
-        setNewsHours(null);
-        showToast('Schedule saved', true);
+        setContentHours(null); setNewsHours(null);
+        toast.success('Schedule saved');
         fetchAll();
       } else {
         const d = await res.json();
-        showToast(d.error || 'Save failed', false);
+        toast.error(d.error || 'Save failed');
       }
     } catch (err: any) {
-      showToast(err.message || 'Save failed', false);
+      toast.error(err.message || 'Save failed');
     } finally {
       setActionLoading(null);
     }
@@ -142,136 +162,241 @@ export default function Scheduler() {
   const displayNewsHours = newsHours ?? schedule?.news_hours_utc ?? [];
   const targetPosts = displayContentHours.length;
 
-  if (loading) {
-    return <div className="space-y-6 animate-pulse"><div className="h-8 bg-brand-elevated rounded w-48" /><div className="h-64 bg-brand-surface border border-brand-border rounded-2xl" /></div>;
-  }
+  // Stats
+  const successRuns = history.filter(r => r.ok || r.status === 'success').length;
+  const failedRuns = history.filter(r => !r.ok && r.status !== 'success' && r.status).length;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto space-y-6 pb-24 md:pb-0">
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className={cn("fixed top-20 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-mono text-xs font-bold", toast.ok ? "bg-brand-success text-white" : "bg-brand-danger text-white")}>
-            {toast.ok ? <Check className="w-4 h-4" /> : <Activity className="w-4 h-4" />}{toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight flex items-center">
-            <Calendar className="w-8 h-8 mr-3 text-brand-primary" /> Scheduler Control
-          </h1>
-          <p className="text-brand-text-muted text-sm font-mono mt-1">CONTENT ENGINE ORCHESTRATION</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto space-y-5 pb-24 md:pb-0">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-brand-primary/10 rounded-xl border border-brand-primary/20">
+            <Calendar className="w-5 h-5 text-brand-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">Scheduler</h1>
+            <p className="text-[10px] text-brand-text-muted font-mono uppercase tracking-wider mt-0.5">
+              Content Engine Orchestration
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        <div className="flex items-center gap-1.5 flex-wrap">
           {schedulerRunning ? (
-            <button onClick={() => apiAction('/workflow/pause')} disabled={actionLoading === '/workflow/pause'}
-              className="bg-brand-warning/10 border border-brand-warning/40 text-brand-warning px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-brand-warning/20 flex items-center gap-2 disabled:opacity-60">
-              <Pause className="w-4 h-4" /> Pause
+            <button onClick={() => apiAction('/workflow/pause', 'POST', 'Scheduler paused')}
+              disabled={actionLoading === '/workflow/pause'}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50">
+              <Pause className="w-3.5 h-3.5" /> Pause
             </button>
           ) : (
-            <button onClick={() => apiAction('/workflow/resume')} disabled={actionLoading === '/workflow/resume'}
-              className="bg-brand-success/10 border border-brand-success/40 text-brand-success px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-brand-success/20 flex items-center gap-2 disabled:opacity-60">
-              <Play className="w-4 h-4" /> Resume
+            <button onClick={() => apiAction('/workflow/resume', 'POST', 'Scheduler resumed')}
+              disabled={actionLoading === '/workflow/resume'}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 text-[10px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50">
+              <Play className="w-3.5 h-3.5" /> Resume
             </button>
           )}
-          <button onClick={() => apiAction('/bot/news')} disabled={actionLoading === '/bot/news'}
-            className="bg-brand-elevated border border-brand-border text-brand-text px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:border-brand-accent/40 flex items-center gap-2 disabled:opacity-60">
-            <Newspaper className="w-4 h-4" /> Post News
+          <button onClick={() => apiAction('/bot/news', 'POST', 'News post triggered')}
+            disabled={actionLoading === '/bot/news'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-surface border border-brand-border hover:border-brand-primary/30 text-brand-text-muted hover:text-white text-[10px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50">
+            <Newspaper className="w-3.5 h-3.5" /> News
           </button>
-          <button onClick={() => apiAction('/bot/engage')} disabled={actionLoading === '/bot/engage'}
-            className="bg-brand-elevated border border-brand-border text-brand-text px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:border-brand-accent/40 flex items-center gap-2 disabled:opacity-60">
-            <MessageSquare className="w-4 h-4" /> Engage
+          <button onClick={() => apiAction('/bot/engage', 'POST', 'Engagement triggered')}
+            disabled={actionLoading === '/bot/engage'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-surface border border-brand-border hover:border-brand-primary/30 text-brand-text-muted hover:text-white text-[10px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50">
+            <MessageSquare className="w-3.5 h-3.5" /> Engage
           </button>
-          <button onClick={() => apiAction('/workflow/trigger')} disabled={actionLoading === '/workflow/trigger'}
-            className="bg-brand-elevated border border-brand-border text-brand-text px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:border-brand-warning/40 flex items-center gap-2 disabled:opacity-60">
-            <GitBranch className="w-4 h-4" /> Trigger
+          <button onClick={() => apiAction('/workflow/trigger', 'POST', 'Workflow triggered')}
+            disabled={actionLoading === '/workflow/trigger'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-surface border border-brand-border hover:border-brand-primary/30 text-brand-text-muted hover:text-white text-[10px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50">
+            <GitBranch className="w-3.5 h-3.5" /> Trigger
           </button>
-          <button onClick={() => apiAction('/bot/post')} disabled={actionLoading === '/bot/post'}
-            className="bg-brand-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-brand-primary/90 transition-colors shadow-glow-primary flex items-center gap-2 disabled:opacity-60">
-            <Send className="w-4 h-4" /> Post Now
-          </button>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            onClick={() => apiAction('/bot/post', 'POST', 'Post triggered')}
+            disabled={actionLoading === '/bot/post'}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-primary text-white text-[10px] font-bold font-mono uppercase tracking-wider hover:bg-brand-primary/90 transition-all shadow-glow-primary disabled:opacity-50">
+            <Send className="w-3.5 h-3.5" /> Post Now
+          </motion.button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Scheduler', value: <span className={cn('text-xs font-bold uppercase', schedulerRunning ? 'text-brand-success' : 'text-brand-warning')}>{schedulerRunning ? 'Running' : 'Paused'}</span>, icon: Activity },
-          { label: 'Posts Today', value: `${postsToday} / ${targetPosts}`, icon: Check },
-          { label: 'Queue Depth', value: String(queueSize), icon: Zap },
-          { label: 'Last Post', value: lastPost ? new Date(lastPost).toLocaleTimeString() : '—', icon: Clock },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-brand-surface border border-brand-border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2"><Icon className="w-4 h-4 text-brand-text-muted" /><span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-muted font-mono">{label}</span></div>
-            <div className="text-sm font-bold text-brand-text">{value}</div>
+      {/* Stats */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[1,2,3,4,5].map(i => <div key={i} className="h-20 bg-brand-surface/50 border border-brand-border/50 rounded-xl animate-pulse" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: 'Status', value: schedulerRunning ? 'Running' : 'Paused', icon: Activity, color: schedulerRunning ? 'text-emerald-400' : 'text-amber-400' },
+            { label: 'Posts Today', value: `${postsToday}/${targetPosts}`, icon: Check, color: 'text-brand-primary' },
+            { label: 'Queue', value: queueSize, icon: Layers, color: 'text-violet-400' },
+            { label: 'Last Post', value: lastPost ? new Date(lastPost).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—', icon: Clock, color: 'text-brand-text-muted' },
+            { label: 'Success Rate', value: history.length > 0 ? `${Math.round((successRuns / history.length) * 100)}%` : '—', icon: TrendingUp, color: 'text-emerald-400' },
+          ].map(stat => (
+            <div key={stat.label} className="bg-brand-surface/50 border border-brand-border/50 rounded-xl p-3 hover:border-brand-border transition-colors">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-brand-text-muted">{stat.label}</span>
+                <stat.icon className={cn('w-3.5 h-3.5', stat.color)} />
+              </div>
+              <div className={cn('text-sm font-mono font-bold', stat.color === 'text-brand-text-muted' ? 'text-white' : stat.color)}>
+                {stat.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Timeline overview */}
+      {!loading && (
+        <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-4 space-y-3">
+          <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+            <BarChart3 className="w-3.5 h-3.5 text-brand-primary" /> Posting Schedule — UTC
+          </h2>
+          <TimezoneStrip hours={displayContentHours} color="#818cf8" label="Content" />
+          <TimezoneStrip hours={displayNewsHours} color="#f59e0b" label="News" />
+          <div className="flex justify-between text-[8px] font-mono text-brand-text-muted px-0">
+            {[0, 6, 12, 18].map(h => <span key={h}>{fmt24(h)}</span>)}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      <div className="bg-brand-surface border border-brand-border rounded-2xl p-6">
-        <h2 className="text-sm font-bold uppercase tracking-widest flex items-center mb-5"><Clock className="w-4 h-4 mr-2 text-brand-accent" /> Content Post Hours — UTC ({displayContentHours.length} slots/day)</h2>
-        <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
-          {ALL_HOURS.map(h => (
-            <button key={h} onClick={() => toggleHour(displayContentHours, setContentHours, h)}
-              className={cn('py-2 rounded-xl text-xs font-bold font-mono transition-all border', displayContentHours.includes(h) ? 'bg-brand-primary/20 border-brand-primary text-brand-primary shadow-glow-primary' : 'bg-brand-elevated border-brand-border text-brand-text-muted hover:border-brand-primary/30')}>
-              {String(h).padStart(2, '0')}
-            </button>
-          ))}
+      {/* Content Hours Grid */}
+      {loading ? <SkeletonBlock /> : (
+        <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-violet-400" /> Content Hours
+            </h2>
+            <span className="text-[9px] font-mono text-brand-text-muted">{displayContentHours.length} slots · {targetPosts} posts/day</span>
+          </div>
+          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
+            {ALL_HOURS.map(h => (
+              <button key={h} onClick={() => toggleHour(displayContentHours, setContentHours, h)}
+                className={cn(
+                  'py-2.5 rounded-lg text-[10px] font-bold font-mono transition-all border',
+                  displayContentHours.includes(h)
+                    ? 'bg-violet-500/20 border-violet-500/40 text-violet-400 shadow-glow-primary'
+                    : 'bg-brand-elevated border-brand-border/50 text-brand-text-muted hover:border-violet-500/30 hover:text-white'
+                )}>
+                {String(h).padStart(2, '0')}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {displayContentHours.map(h => (
+              <span key={h} className="text-[9px] font-mono bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded-full border border-violet-500/20">
+                {fmt24(h)}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {displayContentHours.map(h => <span key={h} className="text-[10px] font-mono bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full border border-brand-primary/20">{fmt24(h)}</span>)}
-        </div>
-      </div>
+      )}
 
-      <div className="bg-brand-surface border border-brand-border rounded-2xl p-6">
-        <h2 className="text-sm font-bold uppercase tracking-widest flex items-center mb-5"><RefreshCcw className="w-4 h-4 mr-2 text-brand-warning" /> News Post Hours — UTC ({displayNewsHours.length} slots/day)</h2>
-        <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
-          {ALL_HOURS.map(h => (
-            <button key={h} onClick={() => toggleHour(displayNewsHours, setNewsHours, h)}
-              className={cn('py-2 rounded-xl text-xs font-bold font-mono transition-all border', displayNewsHours.includes(h) ? 'bg-brand-warning/20 border-brand-warning text-brand-warning' : 'bg-brand-elevated border-brand-border text-brand-text-muted hover:border-brand-warning/30')}>
-              {String(h).padStart(2, '0')}
-            </button>
-          ))}
+      {/* News Hours Grid */}
+      {loading ? <SkeletonBlock /> : (
+        <div className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-400" /> News Hours
+            </h2>
+            <span className="text-[9px] font-mono text-brand-text-muted">{displayNewsHours.length} slots</span>
+          </div>
+          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
+            {ALL_HOURS.map(h => (
+              <button key={h} onClick={() => toggleHour(displayNewsHours, setNewsHours, h)}
+                className={cn(
+                  'py-2.5 rounded-lg text-[10px] font-bold font-mono transition-all border',
+                  displayNewsHours.includes(h)
+                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                    : 'bg-brand-elevated border-brand-border/50 text-brand-text-muted hover:border-amber-500/30 hover:text-white'
+                )}>
+                {String(h).padStart(2, '0')}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {displayNewsHours.map(h => (
+              <span key={h} className="text-[9px] font-mono bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">
+                {fmt24(h)}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {displayNewsHours.map(h => <span key={h} className="text-[10px] font-mono bg-brand-warning/10 text-brand-warning px-2 py-0.5 rounded-full border border-brand-warning/20">{fmt24(h)}</span>)}
-        </div>
-      </div>
+      )}
 
-      <div className="bg-brand-surface border border-brand-border rounded-2xl p-6">
-        <h2 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-5"><History className="w-4 h-4 text-brand-text-muted" /> Workflow History</h2>
-        {history.length === 0 ? (
-          <div className="py-10 text-center text-brand-text-muted font-mono text-xs uppercase">No workflow history.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead><tr className="border-b border-brand-border bg-brand-elevated">{['Type','Status','Time','Duration'].map(h => <th key={h} className="py-3 px-4 text-[10px] font-mono uppercase tracking-widest text-brand-text-muted">{h}</th>)}</tr></thead>
-              <tbody>
-                {history.slice(0, 20).map((run, i) => (
-                  <tr key={run.id || i} className="border-b border-brand-border/50 hover:bg-brand-elevated/40 transition-colors">
-                    <td className="py-3 px-4 text-sm font-bold text-brand-text">{run.workflow || run.type || '—'}</td>
-                    <td className="py-3 px-4"><span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border font-mono', run.ok || run.status === 'success' ? 'bg-brand-success/10 border-brand-success/30 text-brand-success' : 'bg-brand-danger/10 border-brand-danger/30 text-brand-danger')}>{run.ok ? 'Success' : run.status || '—'}</span></td>
-                    <td className="py-3 px-4 text-xs font-mono text-brand-text-muted">{run.ran_at || run.started_at || run.created_at ? new Date((run.ran_at || run.started_at || run.created_at) as string).toLocaleString() : '—'}</td>
-                    <td className="py-3 px-4 text-xs font-mono text-brand-text-muted">{run.duration_ms ? `${run.duration_ms}ms` : run.duration || '—'}</td>
+      {/* Workflow History */}
+      {loading ? <SkeletonBlock /> : (
+        <div className="bg-brand-surface border border-brand-border/50 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-brand-border/30 bg-brand-elevated/10">
+            <h2 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-text-muted flex items-center gap-2">
+              <History className="w-3.5 h-3.5 text-brand-primary" /> Workflow History
+            </h2>
+            <span className="text-[9px] font-mono text-brand-text-muted">{history.length} runs</span>
+          </div>
+          {history.length === 0 ? (
+            <div className="py-12 text-center text-brand-text-muted font-mono text-xs">No workflow history yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-brand-border/30 text-[9px] font-mono font-bold text-brand-text-muted uppercase tracking-widest">
+                    <th className="py-2.5 px-4">Type</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4 hidden sm:table-cell">Time</th>
+                    <th className="py-2.5 px-4 hidden md:table-cell">Duration</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-brand-border/20">
+                  {history.slice(0, 20).map((run, i) => (
+                    <tr key={run.id || i} className="hover:bg-brand-elevated/20 transition-colors">
+                      <td className="py-2.5 px-4">
+                        <p className="text-xs font-bold text-white">{run.workflow || run.type || '—'}</p>
+                        {run.topic && <p className="text-[9px] text-brand-text-muted font-mono mt-0.5 truncate max-w-[200px]">{run.topic}</p>}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase border',
+                          run.ok || run.status === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-red-500/10 text-red-400 border-red-500/30'
+                        )}>
+                          <div className={cn('w-1.5 h-1.5 rounded-full', run.ok ? 'bg-emerald-400' : 'bg-red-400')} />
+                          {run.ok ? 'Success' : run.status || 'Failed'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 hidden sm:table-cell text-[10px] font-mono text-brand-text-muted whitespace-nowrap">
+                        {run.ran_at || run.started_at || run.created_at
+                          ? new Date((run.ran_at || run.started_at || run.created_at) as string).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+                      <td className="py-2.5 px-4 hidden md:table-cell text-[10px] font-mono text-brand-text-muted">
+                        {run.duration_ms ? `${run.duration_ms}ms` : run.duration || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Save bar */}
       <AnimatePresence>
         {isDirty && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 inset-x-0 flex justify-center z-40 px-4">
-            <div className="bg-brand-surface border border-brand-primary/40 rounded-2xl shadow-2xl p-4 flex items-center gap-4 w-full max-w-md">
-              <span className="text-xs font-mono text-brand-text-muted flex-1">Unsaved changes</span>
-              <button onClick={() => { setContentHours(null); setNewsHours(null); }} className="text-xs font-bold text-brand-text-muted hover:text-brand-text px-3 py-1.5 rounded-lg">Discard</button>
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-4">
+            <div className="bg-brand-surface border border-brand-primary/30 rounded-2xl shadow-2xl p-3.5 flex items-center gap-4">
+              <AlertCircle className="w-4 h-4 text-brand-primary flex-shrink-0" />
+              <span className="text-xs font-mono text-brand-text-muted">Unsaved schedule changes</span>
+              <button onClick={() => { setContentHours(null); setNewsHours(null); }}
+                className="text-xs font-bold text-brand-text-muted hover:text-white px-3 py-1.5 rounded-lg transition-colors">Discard</button>
               <button onClick={handleSave} disabled={actionLoading === 'save'}
-                className="bg-brand-primary text-white px-5 py-2 rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-brand-primary/90 transition-colors flex items-center gap-2 disabled:opacity-60">
-                {actionLoading === 'save' ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Save
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold font-mono uppercase tracking-wider hover:bg-brand-primary/90 transition-all disabled:opacity-50">
+                {actionLoading === 'save' ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Save
               </button>
             </div>
           </motion.div>
