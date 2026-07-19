@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
@@ -47,6 +47,10 @@ import {
   Bot,
   Palette,
   ToggleLeft,
+  PanelLeftClose,
+  PanelLeft,
+  ChevronRight,
+  Home,
 } from 'lucide-react';
 import { cn, vibrate } from '../lib/utils';
 import CommandTerminal from './CommandTerminal';
@@ -121,6 +125,42 @@ const MOOD_META: Record<string, { label: string; color: string; dot: string }> =
   urgent:       { label: 'Urgent',       color: 'bg-brand-danger/10 text-brand-danger border-brand-danger/30',    dot: 'bg-brand-danger' },
 };
 
+// ── Breadcrumb builder ─────────────────────────────────────────────────────
+
+function useBreadcrumbs() {
+  const location = useLocation();
+  const segments = location.pathname.split('/').filter(Boolean);
+  
+  if (segments.length === 0) return [{ label: 'Dashboard', to: '/' }];
+  
+  return [
+    { label: 'Home', to: '/' },
+    ...segments.map((seg, i) => {
+      const item = NAV_ITEMS.find(n => n.to === '/' + segments.slice(0, i + 1).join('/'));
+      return {
+        label: item?.label || seg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        to: '/' + segments.slice(0, i + 1).join('/'),
+      };
+    }),
+  ];
+}
+
+// ── Tooltip component ──────────────────────────────────────────────────────
+
+function Tooltip({ children, content }: { children: React.ReactNode; content: string }) {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-xs font-medium text-brand-text shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 whitespace-nowrap z-50 pointer-events-none">
+        {content}
+        <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 border-4 border-transparent border-r-brand-border" />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default function Layout() {
   const {
     logout, socketConnected, connectSocket, disconnectSocket,
@@ -134,6 +174,7 @@ export default function Layout() {
   } = useStore();
 
   const [isMobileMenuOpen,    setIsMobileMenuOpen]    = useState(false);
+  const [isCollapsed,         setIsCollapsed]         = useState(false);
   const [isFabOpen,           setIsFabOpen]           = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAdminMenuOpen,     setIsAdminMenuOpen]     = useState(false);
@@ -143,18 +184,24 @@ export default function Layout() {
   const [searchQuery,         setSearchQuery]         = useState('');
   const [clockTime,           setClockTime]           = useState(() => new Date().toISOString().replace('T', ' ').substring(0, 19));
   const [hidden,              setHidden]              = useState(false);
-  const lastScrollY = React.useRef(0);
+  const lastScrollY = useRef(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const breadcrumbs = useBreadcrumbs();
 
-  // Apply theme to root element
+  // Collapse sidebar on smaller screens by default
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1280px)');
+    setIsCollapsed(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsCollapsed(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Apply theme
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'light') {
-      root.classList.add('light');
-    } else {
-      root.classList.remove('light');
-    }
+    root.classList.toggle('light', theme === 'light');
   }, [theme]);
 
   // Live UTC clock
@@ -175,11 +222,8 @@ export default function Layout() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
-        setHidden(true);
-      } else {
-        setHidden(false);
-      }
+      if (currentScrollY > lastScrollY.current && currentScrollY > 80) setHidden(true);
+      else setHidden(false);
       lastScrollY.current = currentScrollY;
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -211,6 +255,7 @@ export default function Layout() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setIsSearchOpen(v => !v); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); setIsCollapsed(v => !v); }
       if ((e.ctrlKey || e.metaKey) && e.key === '`') { e.preventDefault(); toggleTerminal(); }
       if (e.key === 'Escape') { setIsSearchOpen(false); setIsNotificationsOpen(false); setIsAdminMenuOpen(false); setIsTenantOpen(false); }
     };
@@ -246,11 +291,6 @@ export default function Layout() {
   const criticalHealth = healthMatrix.filter(h => h.status === 'offline').length;
   const degradedHealth = healthMatrix.filter(h => h.status === 'degraded').length;
 
-  const currentPage = NAV_ITEMS.find(item =>
-    item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
-  );
-
-  // Search filter
   const searchResults = searchQuery.length > 1
     ? NAV_ITEMS.filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
     : [];
@@ -259,26 +299,43 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col bg-brand-bg text-brand-text overflow-hidden">
 
       {/* ── TOP NAVIGATION BAR ── */}
-      <header className="h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex-shrink-0 flex items-center justify-between px-4 bg-brand-surface border-b border-brand-border z-50 gap-4">
+      <header className="h-14 flex-shrink-0 flex items-center justify-between px-4 bg-brand-surface/80 backdrop-blur-xl border-b border-brand-border/50 z-50 gap-4">
 
-        {/* Left: Logo + Mobile Menu */}
+        {/* Left: Collapse + Logo */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => { setIsMobileMenuOpen(!isMobileMenuOpen); vibrate(10); }}
             className="lg:hidden p-1.5 rounded-lg hover:bg-brand-elevated text-brand-text-muted"
           >
             <Menu className="w-5 h-5" />
           </button>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex p-1.5 rounded-lg hover:bg-brand-elevated text-brand-text-muted transition-colors"
+            title={isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          >
+            {isCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
           <div className="flex items-center gap-2.5">
             <div className="relative">
-              <div className="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center shadow-glow-primary">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary to-brand-accent flex items-center justify-center shadow-glow-primary">
                 <Zap className="w-4 h-4 text-white" />
               </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-brand-success rounded-full border-2 border-brand-surface" />
             </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-bold leading-none tracking-wide">Kanyoza AI</p>
-              <p className="text-[10px] text-brand-text-muted font-mono leading-none mt-0.5">Enterprise Platform</p>
-            </div>
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="hidden sm:block overflow-hidden"
+                >
+                  <p className="text-sm font-bold leading-none tracking-wide whitespace-nowrap">Kanyoza AI</p>
+                  <p className="text-[10px] text-brand-text-muted font-mono leading-none mt-0.5">Enterprise v11</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -293,28 +350,30 @@ export default function Layout() {
               onChange={e => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchOpen(true)}
               onBlur={() => setTimeout(() => setIsSearchOpen(false), 150)}
-              className="w-full pl-9 pr-4 py-2 bg-brand-elevated border border-brand-border rounded-lg text-sm text-brand-text placeholder-brand-text-muted focus:outline-none focus:border-brand-primary transition-colors"
+              className="w-full pl-9 pr-12 py-2 bg-brand-elevated/50 border border-brand-border/50 rounded-lg text-sm text-brand-text placeholder-brand-text-muted focus:outline-none focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/20 transition-all"
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono bg-brand-bg border border-brand-border rounded text-brand-text-muted">
-              Ctrl+K
+              ⌘K
             </kbd>
           </div>
           <AnimatePresence>
             {isSearchOpen && searchResults.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                className="absolute top-full left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden z-50"
+                initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                transition={{ duration: 0.15 }}
+                className="absolute top-full left-0 right-0 mt-1 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-xl shadow-2xl overflow-hidden z-50"
               >
-                {searchResults.map(item => (
+                {searchResults.map((item, i) => (
                   <button
                     key={item.to}
                     onMouseDown={() => { navigate(item.to); setSearchQuery(''); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-brand-elevated text-left transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-brand-elevated text-left transition-colors first:rounded-t-xl last:rounded-b-xl"
                   >
                     <item.icon className="w-4 h-4 text-brand-primary" />
                     <span className="text-sm font-medium">{item.label}</span>
+                    <span className="ml-auto text-[10px] text-brand-text-muted font-mono">{item.to}</span>
                   </button>
                 ))}
               </motion.div>
@@ -322,54 +381,60 @@ export default function Layout() {
           </AnimatePresence>
         </div>
 
-        {/* Right: Status indicators + controls */}
+        {/* Right: Status + Controls */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <div className="hidden xl:flex items-center gap-2 mr-2 text-xs font-mono">
+          {/* System status pill */}
+          <div className="hidden xl:flex items-center gap-2 mr-2">
             <div className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold',
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors',
               socketConnected
                 ? 'bg-brand-success/10 text-brand-success border-brand-success/20'
                 : 'bg-brand-danger/10 text-brand-danger border-brand-danger/20'
             )}>
               {socketConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {socketConnected ? 'Online' : 'Offline'}
+              {socketConnected ? 'Live' : 'Offline'}
             </div>
-            {criticalHealth > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-brand-danger/10 text-brand-danger border-brand-danger/20 text-[11px] font-semibold">
+            {criticalHealth > 0 ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-brand-danger/10 text-brand-danger border-brand-danger/20 text-[11px] font-semibold animate-pulse">
                 <AlertTriangle className="w-3 h-3" />
-                {criticalHealth} Critical
+                {criticalHealth}
               </div>
-            )}
-            {criticalHealth === 0 && (
+            ) : (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-brand-success/10 text-brand-success border-brand-success/20 text-[11px] font-semibold">
                 <CheckCircle className="w-3 h-3" />
-                All Systems OK
+                Operational
               </div>
             )}
           </div>
+
+          {/* AI Mood */}
           <div className={cn(
             'hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold mr-1',
             MOOD_META[personaMood]?.color
           )}>
-            <Bot className="w-3 h-3" />
+            <div className={cn('w-1.5 h-1.5 rounded-full', MOOD_META[personaMood]?.dot)} />
             <span>{MOOD_META[personaMood]?.label}</span>
           </div>
+
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-brand-elevated transition-colors text-brand-text-muted hover:text-brand-text"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
+
+          {/* Notifications */}
           <div className="relative">
             <button
-              onClick={() => { setIsNotificationsOpen(!isNotificationsOpen); setIsAdminMenuOpen(false); setIsTenantOpen(false); }}
+              onClick={() => { setIsNotificationsOpen(!isNotificationsOpen); setIsAdminMenuOpen(false); }}
               className="p-2 rounded-lg hover:bg-brand-elevated transition-colors relative"
             >
-              <Bell className="w-4 h-4 text-brand-text-muted hover:text-brand-text transition-colors" />
+              <Bell className="w-4 h-4 text-brand-text-muted" />
               {unreadAlerts > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-brand-danger rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-glow-danger">
-                  {unreadAlerts}
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-brand-danger rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-glow-danger">
+                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
                 </span>
               )}
             </button>
@@ -379,12 +444,13 @@ export default function Layout() {
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                  className="absolute right-0 top-full mt-2 w-80 bg-brand-surface border border-brand-border rounded-2xl shadow-2xl z-50 overflow-hidden"
+                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute right-0 top-full mt-2 w-80 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-2xl shadow-2xl z-50 overflow-hidden"
                 >
                   <div className="p-4 border-b border-brand-border flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold">Notifications</h3>
-                      <p className="text-[11px] text-brand-text-muted mt-0.5">{guardianAlerts.length} total alerts</p>
+                      <p className="text-[11px] text-brand-text-muted mt-0.5">{guardianAlerts.length} total</p>
                     </div>
                     <span className={cn(
                       'text-[10px] font-bold px-2 py-0.5 rounded-full',
@@ -421,20 +487,24 @@ export default function Layout() {
                       onClick={() => { navigate('/security'); setIsNotificationsOpen(false); }}
                       className="w-full py-2 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
                     >
-                      View all in Security Center
+                      View Security Center →
                     </button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+
+          {/* Workspace switcher */}
           <div className="relative hidden lg:block">
             <button
-              onClick={() => { setIsWorkspaceOpen(!isWorkspaceOpen); setIsAdminMenuOpen(false); setIsNotificationsOpen(false); setIsTenantOpen(false); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-brand-elevated border border-brand-border text-xs font-medium transition-colors"
+              onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-brand-elevated border border-brand-border/50 text-xs font-medium transition-colors"
             >
-              <LayoutGrid className="w-3.5 h-3.5 text-brand-primary" />
-              <span className="max-w-28 truncate">{activeWorkspace?.name || (workspaces.length === 0 ? 'No workspaces' : 'Select workspace')}</span>
+              <div className="w-4 h-4 rounded bg-brand-primary/20 text-brand-primary flex items-center justify-center text-[8px] font-bold">
+                {activeWorkspace?.name?.[0] || 'K'}
+              </div>
+              <span className="max-w-24 truncate">{activeWorkspace?.name || 'Select'}</span>
               <ChevronDown className="w-3 h-3 text-brand-text-muted" />
             </button>
             <AnimatePresence>
@@ -444,15 +514,12 @@ export default function Layout() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute right-0 top-full mt-2 w-56 bg-brand-surface border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-2 w-56 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   <div className="p-3 border-b border-brand-border">
-                    <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Active Workspace</p>
+                    <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Workspace</p>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    {workspaces.length === 0 && (
-                      <p className="px-3 py-4 text-xs text-brand-text-muted font-mono">No workspaces yet.</p>
-                    )}
                     {workspaces.map(ws => (
                       <button
                         key={ws.id}
@@ -474,73 +541,15 @@ export default function Layout() {
               )}
             </AnimatePresence>
           </div>
-          <div className="relative hidden md:block">
+
+          {/* User menu */}
+          <div className="relative border-l border-brand-border/50 ml-1 pl-2">
             <button
-              onClick={() => { setIsTenantOpen(!isTenantOpen); setIsAdminMenuOpen(false); setIsNotificationsOpen(false); setIsWorkspaceOpen(false); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-brand-elevated border border-brand-border text-xs font-medium transition-colors"
+              onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-brand-elevated transition-colors"
             >
-              <Building2 className="w-3.5 h-3.5 text-brand-text-muted" />
-              <span className="max-w-24 truncate">{activeWorkspace?.name || currentTenant}</span>
-              <ChevronDown className="w-3 h-3 text-brand-text-muted" />
-            </button>
-            <AnimatePresence>
-              {isTenantOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                  className="absolute right-0 top-full mt-2 w-52 bg-brand-surface border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
-                >
-                  <div className="p-3 border-b border-brand-border">
-                    <p className="text-xs font-bold text-brand-text-muted uppercase tracking-wider">Switch Workspace</p>
-                  </div>
-                  {workspaces.length === 0 ? (
-                    <p className="px-3 py-4 text-xs text-brand-text-muted font-mono">No workspaces yet.</p>
-                  ) : (
-                    workspaces.map(ws => (
-                      <button
-                        key={ws.id}
-                        onClick={() => { 
-                          setCurrentTenant(ws.name); 
-                          setSelectedWorkspaceId(ws.id); 
-                          setIsTenantOpen(false); 
-                        }}
-                        className={cn(
-                          'w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-brand-elevated transition-colors text-left',
-                          String(selectedWorkspaceId) === String(ws.id) && 'bg-brand-primary/10 text-brand-primary'
-                        )}
-                      >
-                        <div className="w-6 h-6 rounded-md bg-brand-primary/20 text-brand-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                          {ws.name[0]?.toUpperCase()}
-                        </div>
-                        <span className="truncate font-medium">{ws.name}</span>
-                        {String(selectedWorkspaceId) === String(ws.id) && <CheckCircle className="w-3.5 h-3.5 ml-auto flex-shrink-0" />}
-                      </button>
-                    ))
-                  )}
-                  <div className="p-1.5 border-t border-brand-border">
-                    <button
-                      onClick={() => { navigate('/tenants'); setIsTenantOpen(false); }}
-                      className="w-full py-2 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
-                    >
-                      Manage Workspaces
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          <div className="relative border-l border-brand-border ml-1 pl-2">
-            <button
-              onClick={() => { setIsAdminMenuOpen(!isAdminMenuOpen); setIsNotificationsOpen(false); setIsTenantOpen(false); }}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-brand-elevated transition-colors"
-            >
-              <div className="w-7 h-7 rounded-full bg-brand-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-primary to-brand-accent flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-brand-primary/20">
                 A
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold leading-none">Admin</p>
-                <p className="text-[10px] text-brand-text-muted leading-none mt-0.5">Level 5</p>
               </div>
               <ChevronDown className="w-3 h-3 text-brand-text-muted hidden sm:block" />
             </button>
@@ -550,24 +559,31 @@ export default function Layout() {
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                  className="absolute right-0 top-full mt-2 w-52 bg-brand-surface border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
+                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute right-0 top-full mt-2 w-52 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   <div className="p-3 border-b border-brand-border">
                     <p className="text-sm font-bold">Administrator</p>
                     <p className="text-xs text-brand-text-muted">Level 5 Clearance</p>
                   </div>
                   <div className="p-1.5 space-y-0.5">
-                    <button onClick={() => { navigate('/settings'); setIsAdminMenuOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-brand-elevated transition-colors">
-                      <Settings className="w-4 h-4 text-brand-text-muted" /> Settings
-                    </button>
-                    <button onClick={() => { toggleTerminal(); setIsAdminMenuOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-brand-elevated transition-colors">
+                    {[
+                      { to: '/settings', icon: Settings, label: 'Settings' },
+                      { to: '/users', icon: Users, label: 'Manage Users' },
+                    ].map(item => (
+                      <button
+                        key={item.to}
+                        onClick={() => { navigate(item.to); setIsAdminMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-brand-elevated transition-colors"
+                      >
+                        <item.icon className="w-4 h-4 text-brand-text-muted" /> {item.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => { toggleTerminal(); setIsAdminMenuOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-brand-elevated transition-colors"
+                    >
                       <TerminalIcon className="w-4 h-4 text-brand-accent" /> Terminal
-                    </button>
-                    <button onClick={() => { navigate('/users'); setIsAdminMenuOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-brand-elevated transition-colors">
-                      <Users className="w-4 h-4 text-brand-text-muted" /> Manage Users
                     </button>
                   </div>
                   <div className="p-1.5 border-t border-brand-border">
@@ -587,13 +603,27 @@ export default function Layout() {
 
       {/* ── BODY (Sidebar + Content) ── */}
       <div className="flex flex-1 overflow-hidden">
-        <nav className={cn(
-          'fixed lg:relative top-14 lg:top-0 left-0 h-[calc(100vh-3.5rem)] lg:h-full w-64 bg-brand-surface border-r border-brand-border z-40',
-          'flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0',
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}>
-          <div className="px-4 py-3 border-b border-brand-border flex items-center justify-between">
-            <span className="text-[11px] font-mono text-brand-text-muted tabular-nums">{clockTime} UTC</span>
+        
+        {/* ── SIDEBAR ── */}
+        <motion.nav
+          animate={{ width: isCollapsed ? 64 : 256 }}
+          transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+          className={cn(
+            'fixed lg:relative top-14 lg:top-0 left-0 h-[calc(100vh-3.5rem)] lg:h-full bg-brand-surface/80 backdrop-blur-xl border-r border-brand-border/50 z-40',
+            'flex flex-col overflow-hidden',
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          )}
+        >
+          {/* Clock + Status */}
+          <div className={cn(
+            'px-3 py-3 border-b border-brand-border/50 flex items-center gap-2',
+            isCollapsed ? 'justify-center' : 'justify-between'
+          )}>
+            {!isCollapsed && (
+              <span className="text-[11px] font-mono text-brand-text-muted tabular-nums whitespace-nowrap">
+                {clockTime} UTC
+              </span>
+            )}
             <ConnectionBadge
               socketConnected={socketConnected}
               isUsingLiveBackendData={isUsingLiveBackendData}
@@ -602,37 +632,68 @@ export default function Layout() {
               socketTransport={socketTransport}
             />
           </div>
-          <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
+
+          {/* Nav items */}
+          <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
             {NAV_GROUPS.map(group => {
               const items = NAV_ITEMS.filter(i => i.group === group.key);
               return (
                 <div key={group.key}>
-                  <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-text-muted">{group.label}</p>
+                  {!isCollapsed && (
+                    <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-text-muted">
+                      {group.label}
+                    </p>
+                  )}
                   <div className="space-y-0.5">
-                    {items.map(item => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.to === '/'}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={({ isActive }) => cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium group',
-                          isActive
-                            ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
-                            : 'text-brand-text-muted hover:bg-brand-elevated hover:text-brand-text'
-                        )}
-                      >
-                        <item.icon className="w-4 h-4 flex-shrink-0 group-[.active]:text-brand-primary" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    ))}
+                    {items.map(item => {
+                      const link = (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          end={item.to === '/'}
+                          onClick={() => { setIsMobileMenuOpen(false); vibrate(5); }}
+                          className={({ isActive }) => cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium group relative',
+                            isCollapsed && 'justify-center px-2',
+                            isActive
+                              ? 'bg-brand-primary/10 text-brand-primary'
+                              : 'text-brand-text-muted hover:bg-brand-elevated hover:text-brand-text'
+                          )}
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <item.icon className={cn('w-4 h-4 flex-shrink-0', isActive && 'text-brand-primary')} />
+                              {!isCollapsed && <span className="truncate">{item.label}</span>}
+                              {isActive && (
+                                <motion.div
+                                  layoutId="activeNav"
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-brand-primary rounded-r-full"
+                                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                                />
+                              )}
+                            </>
+                          )}
+                        </NavLink>
+                      );
+
+                      if (isCollapsed) {
+                        return (
+                          <Tooltip key={item.to} content={item.label}>
+                            {link}
+                          </Tooltip>
+                        );
+                      }
+                      return link;
+                    })}
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="p-3 border-t border-brand-border space-y-2">
-            <div className="flex items-center justify-center py-2">
+
+          {/* Bottom section */}
+          <div className="p-2 border-t border-brand-border/50 space-y-1">
+            <div className={cn('flex items-center py-2', isCollapsed ? 'justify-center' : 'justify-center')}>
               <ConnectionOrb
                 socketConnected={socketConnected}
                 isUsingLiveBackendData={isUsingLiveBackendData}
@@ -643,29 +704,48 @@ export default function Layout() {
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-brand-text-muted hover:text-brand-danger hover:bg-brand-danger/10 rounded-lg transition-colors"
+              className={cn(
+                'flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-brand-text-muted hover:text-brand-danger hover:bg-brand-danger/10 rounded-lg transition-colors',
+                isCollapsed && 'justify-center px-2'
+              )}
             >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              {!isCollapsed && <span>Sign Out</span>}
             </button>
           </div>
-        </nav>
+        </motion.nav>
+
+        {/* ── MAIN CONTENT ── */}
         <main className="flex-1 flex flex-col overflow-hidden">
           <SystemDiagnostics />
-          <div className="h-10 flex-shrink-0 flex items-center px-6 bg-brand-bg/50 border-b border-brand-border/50 gap-3">
-            <LayoutGrid className="w-3.5 h-3.5 text-brand-text-muted" />
-            <span className="text-xs text-brand-text-muted">/</span>
-            <span className="text-xs font-semibold text-brand-text">{currentPage?.label || 'Dashboard'}</span>
+
+          {/* Breadcrumb */}
+          <div className="h-9 flex-shrink-0 flex items-center px-4 bg-brand-bg/50 border-b border-brand-border/30 gap-1.5 overflow-x-auto">
+            {breadcrumbs.map((crumb, i) => (
+              <React.Fragment key={crumb.to}>
+                {i > 0 && <ChevronRight className="w-3 h-3 text-brand-text-muted flex-shrink-0" />}
+                <button
+                  onClick={() => navigate(crumb.to)}
+                  className={cn(
+                    'text-xs whitespace-nowrap transition-colors hover:text-brand-primary',
+                    i === breadcrumbs.length - 1 ? 'font-semibold text-brand-text' : 'text-brand-text-muted'
+                  )}
+                >
+                  {crumb.label}
+                </button>
+              </React.Fragment>
+            ))}
           </div>
+
+          {/* Page content */}
           <div className="flex-1 overflow-x-hidden overflow-y-auto bg-brand-bg p-4 md:p-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] lg:pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="h-full"
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <Outlet />
               </motion.div>
@@ -674,17 +754,17 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV — Auto-hide on scroll ── */}
+      {/* ── MOBILE BOTTOM NAV ── */}
       <motion.div
-        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-brand-surface border-t border-brand-border z-50 flex items-center justify-around px-2"
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-brand-surface/90 backdrop-blur-xl border-t border-brand-border/50 z-50 flex items-center justify-around px-2"
         animate={{ y: hidden ? '100%' : '0%' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
         {[
-          { to: '/',          icon: LayoutDashboard, label: 'Home' },
+          { to: '/',          icon: Home,            label: 'Home' },
           { to: '/ai-brain',  icon: BrainCircuit,    label: 'AI' },
           { to: '/workflows', icon: GitBranch,       label: 'Flows' },
-          { to: '/analytics', icon: BarChart3,       label: 'Analytics' },
+          { to: '/analytics', icon: BarChart3,       label: 'Stats' },
           { to: '/settings',  icon: Settings,        label: 'Settings' },
         ].map(item => (
           <NavLink
@@ -711,28 +791,33 @@ export default function Layout() {
       </motion.div>
 
       {/* ── MOBILE OVERLAY ── */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── FAB ── */}
       <div className="fixed bottom-20 lg:bottom-6 right-6 z-50">
         <AnimatePresence>
           {isFabOpen && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
               className="absolute bottom-16 right-0 mb-2 flex flex-col items-end gap-2"
             >
               {[
-                { label: 'Terminal',       icon: TerminalIcon, color: 'bg-brand-elevated border border-brand-border', onClick: toggleTerminal },
-                { label: 'Force Post',     icon: Zap,          color: 'bg-brand-primary',  onClick: () => handleFabCommand('/post', '/posts') },
-                { label: 'Security Scan',  icon: ShieldAlert,  color: 'bg-brand-danger',   onClick: () => handleFabCommand('/scan', '/security') },
-                { label: 'Health Check',   icon: Activity,     color: 'bg-brand-accent',   onClick: () => handleFabCommand('/ping') },
+                { label: 'Terminal',       icon: TerminalIcon, onClick: toggleTerminal },
+                { label: 'Force Post',     icon: Zap,          onClick: () => handleFabCommand('/post', '/posts') },
+                { label: 'Security Scan',  icon: ShieldAlert,  onClick: () => handleFabCommand('/scan', '/security') },
+                { label: 'Health Check',   icon: Activity,     onClick: () => handleFabCommand('/ping') },
               ].map((action, i) => (
                 <motion.button
                   key={action.label}
@@ -742,11 +827,11 @@ export default function Layout() {
                   onClick={() => { action.onClick(); setIsFabOpen(false); }}
                   className="flex items-center gap-3 group"
                 >
-                  <span className="px-3 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-xs font-semibold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="px-3 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-xs font-semibold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     {action.label}
                   </span>
-                  <div className={cn('w-11 h-11 rounded-full flex items-center justify-center text-white shadow-lg', action.color)}>
-                    <action.icon className="w-4.5 h-4.5 w-[18px] h-[18px]" />
+                  <div className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-glow-primary">
+                    <action.icon className="w-[18px] h-[18px]" />
                   </div>
                 </motion.button>
               ))}
@@ -755,9 +840,9 @@ export default function Layout() {
         </AnimatePresence>
         <button
           onClick={() => setIsFabOpen(!isFabOpen)}
-          className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-glow-primary hover:scale-105 active:scale-95 transition-all"
+          className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-accent text-white flex items-center justify-center shadow-glow-primary hover:scale-105 active:scale-95 transition-all"
         >
-          <motion.div animate={{ rotate: isFabOpen ? 45 : 0 }}>
+          <motion.div animate={{ rotate: isFabOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
             <Zap className="w-5 h-5" />
           </motion.div>
         </button>
