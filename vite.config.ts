@@ -11,7 +11,6 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        // Pre-cache all static assets on install
         includeAssets: ['icon.svg', 'icon.jpg', 'splash.jpg', 'apple-touch-icon.jpg', 'offline.html'],
 
         manifest: {
@@ -21,11 +20,44 @@ export default defineConfig(() => {
           theme_color: '#0A0E1A',
           background_color: '#0A0E1A',
           display: 'standalone',
-          orientation: 'portrait',
+          orientation: 'any',
           start_url: '/',
           scope: '/',
           categories: ['productivity', 'utilities', 'business'],
           lang: 'en',
+
+          // ── App Shortcuts (long-press / right-click the app icon) ──────
+          shortcuts: [
+            {
+              name: 'AI Chat',
+              short_name: 'Chat',
+              description: 'Talk to the AI assistant',
+              url: '/ai-chat',
+              icons: [{ src: 'icon.jpg', sizes: '192x192' }],
+            },
+            {
+              name: 'Content Studio',
+              short_name: 'Posts',
+              description: 'Create and manage social posts',
+              url: '/posts',
+              icons: [{ src: 'icon.jpg', sizes: '192x192' }],
+            },
+            {
+              name: 'System Monitoring',
+              short_name: 'Monitoring',
+              description: 'View system health and metrics',
+              url: '/monitoring',
+              icons: [{ src: 'icon.jpg', sizes: '192x192' }],
+            },
+            {
+              name: 'Security Center',
+              short_name: 'Security',
+              description: 'View security alerts and audit logs',
+              url: '/security',
+              icons: [{ src: 'icon.jpg', sizes: '192x192' }],
+            },
+          ],
+
           icons: [
             // SVG — scales perfectly at any size
             {
@@ -59,7 +91,6 @@ export default defineConfig(() => {
 
         // Workbox runtime caching strategies
         workbox: {
-          // Navigation requests (HTML pages) — network-first, fallback to offline page
           navigateFallback: '/offline.html',
           navigateFallbackDenylist: [/^\/api\//],
 
@@ -82,7 +113,7 @@ export default defineConfig(() => {
                 expiration: { maxEntries: 40, maxAgeSeconds: 30 * 24 * 60 * 60 },
               },
             },
-            // REST API — network-first (must be fresh), 5 s timeout then cache
+            // REST API — network-first, 5s timeout then cache
             {
               urlPattern: /\/api\/v1\//,
               handler: 'NetworkFirst',
@@ -92,7 +123,7 @@ export default defineConfig(() => {
                 expiration: { maxEntries: 30, maxAgeSeconds: 5 * 60 },
               },
             },
-            // Third-party CDN (fonts, avatars, unsplash) — stale-while-revalidate
+            // Third-party CDN — stale-while-revalidate
             {
               urlPattern: /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com|ui-avatars\.com|images\.unsplash\.com)/,
               handler: 'StaleWhileRevalidate',
@@ -113,15 +144,12 @@ export default defineConfig(() => {
     },
 
     server: {
-      // Allow all Replit proxy hosts
       allowedHosts: true as const,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch:
         process.env.DISABLE_HMR === 'true'
           ? null
           : {
-              // Avoid ENOSPC (file watcher limit) by never watching non-project
-              // directories like agent skill/task metadata folders.
               ignored: ['**/.local/**', '**/.agents/**', '**/.git/**', '**/.cache/**'],
             },
     },
