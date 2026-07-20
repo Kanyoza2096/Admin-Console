@@ -287,7 +287,7 @@ export default function KnowledgeBase() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             {displayedDocs.map((doc, idx) => {
               const typeConfig = TYPE_COLORS[doc.doc_type || ''] || TYPE_COLORS.general;
               return (

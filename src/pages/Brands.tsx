@@ -202,7 +202,7 @@ export default function Brands() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             {filteredBrands.map((b, idx) => (
               <motion.div key={b.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
                 className="bg-brand-surface border border-brand-border/50 rounded-2xl p-5 hover:border-brand-primary/30 transition-all group">
@@ -239,7 +239,7 @@ export default function Brands() {
 
                 {b.hashtags && (
                   <div className="flex flex-wrap gap-1 pt-3 border-t border-brand-border/30">
-                    {(Array.isArray(b.hashtags) ? b.hashtags : String(b.hashtags).split(',').map(t => t.trim()).filter(Boolean)).slice(0, 4).map((tag: string) => (
+                    {((Array.isArray(b.hashtags) ? b.hashtags : String(b.hashtags).split(',').map((t: string) => t.trim()).filter(Boolean)) as string[]).slice(0, 4).map((tag: string) => (
                       <span key={tag} className="text-[9px] font-mono text-sky-400 flex items-center gap-0.5">
                         <Hash className="w-2.5 h-2.5" />{tag.replace('#', '')}
                       </span>

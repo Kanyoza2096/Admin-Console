@@ -158,7 +158,7 @@ export default function AuditLogs() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border/20">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="wait">
                   {filteredLogs.map((log, idx) => {
                     const config = STATUS_CONFIG[log.status || ''] || { color: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20', icon: Clock };
                     const StatusIcon = config.icon;

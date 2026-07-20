@@ -4,12 +4,13 @@ import { cn } from '../lib/utils';
 
 interface SkeletonProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
 // ── Base shimmer block ─────────────────────────────────────────────────────
 
-export const Skeleton = ({ className }: SkeletonProps) => (
-  <div className={cn('relative overflow-hidden rounded-lg bg-white/[0.03]', className)}>
+export const Skeleton = ({ className, style }: SkeletonProps) => (
+  <div className={cn('relative overflow-hidden rounded-lg bg-white/[0.03]', className)} style={style}>
     <motion.div
       className="absolute inset-0"
       style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }}

@@ -332,12 +332,16 @@ export const useStore = create<AppState>((set, get) => ({
   connectSocket: () => {
     if (get().socket) return;
     const rawBase = get().wsEndpoint.replace(/\/+$/, '');
+    // Don't attempt connection if no endpoint has been configured by the user
+    if (!rawBase || rawBase === 'wss://kanyoza-systems-bot.onrender.com' && !get().masterToken) return;
     const base = rawBase.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://');
     const socket = io(`${base}/dashboard`, {
       transports: ['polling', 'websocket'],
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
-      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 30000,
+      // Cap at 5 attempts to avoid flooding Chrome with failed requests
+      // when the backend is unreachable. The user can reconnect manually.
+      reconnectionAttempts: 5,
       timeout: 20000,
       auth: { token: get().masterToken },
     });

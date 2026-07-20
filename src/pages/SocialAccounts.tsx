@@ -387,7 +387,7 @@ export default function SocialAccounts() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             {filteredAccounts.map(account => {
               const config = PLATFORM_CONFIG[account.platform];
               const Icon = config.icon;

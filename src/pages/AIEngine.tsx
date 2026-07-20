@@ -264,11 +264,11 @@ export default function AIEngine() {
             <div className="p-4 flex-1 flex flex-col justify-center gap-3">
               <div className="flex justify-between items-end pb-2 border-b border-brand-border/30">
                 <span className="text-[10px] font-mono text-brand-text-muted uppercase">Chat Temp</span>
-                <span className="text-lg font-mono font-bold text-white">{statusData?.config?.chat_temperature || '—'}</span>
+                <span className="text-lg font-mono font-bold text-white">{(statusData?.config as any)?.chat_temperature || '—'}</span>
               </div>
               <div className="flex justify-between items-end pb-2 border-b border-brand-border/30">
                 <span className="text-[10px] font-mono text-brand-text-muted uppercase">Post Temp</span>
-                <span className="text-lg font-mono font-bold text-brand-primary">{statusData?.config?.post_temperature || '—'}</span>
+                <span className="text-lg font-mono font-bold text-brand-primary">{(statusData?.config as any)?.post_temperature || '—'}</span>
               </div>
               <div className="flex justify-between items-end pb-2 border-b border-brand-border/30">
                 <span className="text-[10px] font-mono text-brand-text-muted uppercase">Total Tokens</span>

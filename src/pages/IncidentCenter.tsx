@@ -71,7 +71,7 @@ export default function IncidentCenter() {
 
     // From health checks
     if (health?.services) {
-      for (const [name, svc] of Object.entries(health.services)) {
+      for (const [name, svc] of Object.entries(health.services) as [string, any][]) {
         if (svc.status === 'error' || svc.status === 'degraded') {
           result.push({
             id: `health-${name}`,
@@ -238,7 +238,7 @@ export default function IncidentCenter() {
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {filteredIncidents.map((incident) => {
                 const sevConfig = SEVERITY_CONFIG[incident.severity];
                 const SevIcon = sevConfig.icon;

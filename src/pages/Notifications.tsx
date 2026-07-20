@@ -187,7 +187,7 @@ export default function Notifications() {
           </p>
         </div>
       ) : (
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="wait">
           {displayed.map((n, idx) => {
             const config = TYPE_CONFIG[n.type || ''] || DEFAULT_TYPE;
             const Icon = config.icon;

@@ -115,6 +115,13 @@ export interface WorkflowStatusPayload {
   status: WorkflowJobStatus;
   progress: number;
   current_step: string;
+  // Optional extended fields returned by some backend versions
+  total_runs?: number;
+  success_rate?: number;
+  avg_duration_ms?: number;
+  last_run?: string | null;
+  last_error?: string | null;
+  uptime_seconds?: number;
 }
 export const fetchWorkflowStatus = (cfg: ApiConfig) =>
   request<WorkflowStatusPayload>(cfg, '/workflow/status');

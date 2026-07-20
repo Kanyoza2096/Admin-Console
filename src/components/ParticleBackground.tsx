@@ -26,12 +26,19 @@ const ParticleBackground = React.memo(function ParticleBackground() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const resize = () => {
+    const setSize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
-    resize();
-    window.addEventListener('resize', resize);
+    setSize();
+
+    // Debounced resize — avoids jank on rapid Chrome resize events
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const resize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(setSize, 100);
+    };
+    window.addEventListener('resize', resize, { passive: true });
 
     // Initialize particles
     particlesRef.current = Array.from({ length: PARTICLE_COUNT }, () => ({
@@ -47,7 +54,7 @@ const ParticleBackground = React.memo(function ParticleBackground() {
     const handleMouse = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
-    window.addEventListener('mousemove', handleMouse);
+    window.addEventListener('mousemove', handleMouse, { passive: true });
 
     let frame = 0;
     const animate = () => {
@@ -57,7 +64,6 @@ const ParticleBackground = React.memo(function ParticleBackground() {
       const particles = particlesRef.current;
       const mouse = mouseRef.current;
 
-      // Update & draw particles
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
@@ -105,7 +111,7 @@ const ParticleBackground = React.memo(function ParticleBackground() {
         const mdx = mouse.x - p.x;
         const mdy = mouse.y - p.y;
         const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-        if (mDist < 150) {
+        if (mDist < 150 && mDist > 0) {
           const force = (150 - mDist) / 150;
           p.vx += (mdx / mDist) * force * 0.02;
           p.vy += (mdy / mDist) * force * 0.02;
@@ -123,6 +129,7 @@ const ParticleBackground = React.memo(function ParticleBackground() {
 
     return () => {
       cancelAnimationFrame(animationRef.current);
+      clearTimeout(resizeTimer);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouse);
     };
@@ -131,7 +138,7 @@ const ParticleBackground = React.memo(function ParticleBackground() {
   return (
     <>
       {/* Static glow orbs as fallback + ambient base */}
-      <div className="fixed inset-0 -z-10 pointer-events-none bg-[#09090b] overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none bg-[#09090b] overflow-hidden" style={{ zIndex: -10 }}>
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-primary/5 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-brand-primary/3 blur-[140px]" />
         <div className="absolute top-[40%] left-[30%] w-[30%] h-[30%] rounded-full bg-brand-accent/2 blur-[100px]" />
@@ -140,8 +147,8 @@ const ParticleBackground = React.memo(function ParticleBackground() {
       {/* Canvas particle layer */}
       <canvas
         ref={canvasRef}
-        className="fixed inset-0 -z-5 pointer-events-none"
-        style={{ opacity: 0.7 }}
+        className="fixed inset-0 pointer-events-none"
+        style={{ opacity: 0.7, zIndex: -5 }}
       />
     </>
   );

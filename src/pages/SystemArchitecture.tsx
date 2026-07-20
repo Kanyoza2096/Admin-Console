@@ -237,12 +237,7 @@ const SystemArchitecturePage = () => {
 
       {/* Topology Visualizer */}
       <div className="flex-1 min-h-[300px] bg-brand-surface/30 border border-brand-border/50 rounded-2xl overflow-hidden relative">
-        <SystemArchitectureVisualizer
-          services={services}
-          connectors={connectors}
-          onNodeClick={setSelectedService}
-          selectedNode={selectedService?.name}
-        />
+        <SystemArchitectureVisualizer />
 
         {/* Service detail slide-over */}
         <AnimatePresence>

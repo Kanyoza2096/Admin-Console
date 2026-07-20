@@ -1,4 +1,5 @@
-// components/Spinners.jsx
+// components/Spinners.tsx
+import React from 'react';
 import { motion } from 'motion/react';
 import { RefreshCw, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';

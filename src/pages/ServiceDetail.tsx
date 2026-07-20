@@ -244,7 +244,7 @@ export default function ServiceDetail() {
               </div>
             ) : (
               <div className="space-y-2">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="wait">
                   {filteredLogs.slice(0, 30).map((log, i) => (
                     <motion.div key={`${log.timestamp}-${i}`}
                       initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}

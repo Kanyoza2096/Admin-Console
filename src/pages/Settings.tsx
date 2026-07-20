@@ -35,7 +35,7 @@ export default function SettingsPage() {
     aiProvider: (backendConfig as any)?.config?.ai_provider || 'gemini',
     aiModel: (backendConfig as any)?.config?.gemini_model || 'gemini-2.5-flash',
     supabaseEnabled: (backendConfig as any)?.config?.supabase_enabled || false,
-    uptime: stats?.uptime_seconds || 0,
+    uptime: (backendConfig as any)?.uptime_seconds || 0,
     apiCalls: stats?.apiCalls || 0,
     postsPublished: stats?.postsPublished || 0,
     messagesToday: stats?.messagesToday || 0,

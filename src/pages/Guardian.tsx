@@ -145,7 +145,7 @@ export default function Guardian() {
           </div>
         ) : (
           <div className="divide-y divide-brand-border/20">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {filteredAlerts.map((alert: any) => {
                 const config = SEVERITY_CONFIG[alert.severity] || SEVERITY_CONFIG.LOW;
                 const Icon = config.icon;

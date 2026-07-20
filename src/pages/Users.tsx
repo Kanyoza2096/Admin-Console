@@ -378,7 +378,7 @@ export default function Users() {
               </p>
             </div>
           ) : (
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {processedUsers.map((user, idx) => {
                 const roleConfig = ROLE_CONFIG[user.role] || ROLE_CONFIG.User;
                 return (

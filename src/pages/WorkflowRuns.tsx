@@ -64,7 +64,7 @@ export default function WorkflowRuns() {
     try {
       const [h, s] = await Promise.all([
         fetchWorkflowHistory({ restEndpoint, masterToken }).catch(() => ({ history: [] })),
-        fetchWorkflowStatus({ restEndpoint, masterToken }).catch(() => ({ status: 'idle', progress: 0, current_step: '' })),
+        fetchWorkflowStatus({ restEndpoint, masterToken }).catch(() => ({ status: 'idle' as WorkflowJobStatus, progress: 0, current_step: '' })),
       ]);
       setHistory(h.history || []);
       setStatus(s);
@@ -306,7 +306,7 @@ export default function WorkflowRuns() {
               )}
             </div>
           ) : (
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               {filteredHistory.map((run, i) => {
                 const config = STATUS_CONFIG[run.status || ''] || DEFAULT_STATUS;
                 const Icon = config.icon;

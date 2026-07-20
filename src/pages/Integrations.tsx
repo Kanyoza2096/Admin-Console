@@ -48,7 +48,7 @@ export default function Integrations() {
   const headers: Record<string, string> = masterToken ? { Authorization: `Bearer ${masterToken}` } : {};
   const base = restEndpoint.replace(/\/+$/, '');
 
-  const { data: integrations = [], isLoading, error, refetch } = useQuery({
+  const { data: integrations, isLoading, error, refetch } = useQuery({
     queryKey: ['integrations', restEndpoint],
     queryFn: async () => {
       const [intRes, connRes] = await Promise.all([

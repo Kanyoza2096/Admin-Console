@@ -336,7 +336,7 @@ export default function Tasks() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-1 min-h-0">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             {COLUMNS.map((column, colIdx) => {
               const columnTasks = filteredTasks.filter(t => t.status === column.id);
               const ColumnIcon = column.icon;

@@ -369,7 +369,7 @@ export default function DataFlowVisualizer() {
       });
       if (!match) return node;
       const newStatus = match.status === 'online' ? 'online' : match.status === 'degraded' ? 'degraded' : 'offline';
-      const latency = match.latencyMs || undefined;
+      const latency = match.latency || undefined;
       if (node.status === 'offline' && newStatus === 'online') {
         return { ...node, status: 'online', failureReason: undefined, recoveredAt: Date.now(), latency };
       }
