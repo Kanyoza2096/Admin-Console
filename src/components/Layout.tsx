@@ -60,29 +60,18 @@ import SystemDiagnostics from './SystemDiagnostics';
 import { ConnectionOrb, ConnectionBadge } from './ConnectionOrb';
 import { supabase } from '../lib/supabase';
 
-const TENANTS = [
-  'Kanyoza Systems',
-  'TechHub Malawi',
-  'Ministry of Education',
-  'Blantyre Diocese',
-  'HealthPlus Hospital',
-];
+// ── Navigation ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  // Observe
   { to: '/',                 icon: LayoutDashboard, label: 'Dashboard',      group: 'observe' },
   { to: '/data-flow',        icon: Network,         label: 'Data Flow',       group: 'observe' },
   { to: '/system-architecture', icon: LayoutGrid,     label: 'System Architecture', group: 'observe' },
   { to: '/prometheus',       icon: BarChart3,       label: 'Prometheus Metrics', group: 'observe' },
   { to: '/analytics',        icon: BarChart3,       label: 'Analytics',       group: 'observe' },
   { to: '/live-logs',        icon: TerminalIcon,    label: 'Live Logs',       group: 'observe' },
-  
-  // Investigate
   { to: '/incident-center',  icon: AlertTriangle,   label: 'Incident Center', group: 'investigate' },
   { to: '/audit-logs',       icon: FileClock,       label: 'Audit Logs',      group: 'investigate' },
   { to: '/security',         icon: ShieldAlert,     label: 'Security',        group: 'investigate' },
-  
-  // Operate
   { to: '/workflows',        icon: GitBranch,       label: 'Automation',      group: 'operate' },
   { to: '/workflow-runs',    icon: GitBranch,       label: 'Workflow Runs',   group: 'operate' },
   { to: '/scheduler',        icon: Calendar,        label: 'Scheduler',       group: 'operate' },
@@ -90,8 +79,6 @@ const NAV_ITEMS = [
   { to: '/api-manager',      icon: Key,             label: 'API Manager',     group: 'operate' },
   { to: '/posts',            icon: FileText,        label: 'Content Studio',  group: 'operate' },
   { to: '/messenger',        icon: MessageSquare,   label: 'Messenger',       group: 'operate' },
-  
-  // Configure
   { to: '/ai-brain',         icon: BrainCircuit,    label: 'AI Brain',        group: 'configure' },
   { to: '/knowledge-base',   icon: BookOpen,        label: 'Knowledge Base',  group: 'configure' },
   { to: '/integrations',     icon: Link,            label: 'Integrations',    group: 'configure' },
@@ -99,8 +86,6 @@ const NAV_ITEMS = [
   { to: '/ai-profiles',      icon: Bot,             label: 'AI Profiles',     group: 'configure' },
   { to: '/social-accounts',  icon: Link,            label: 'Social Accounts', group: 'configure' },
   { to: '/mis',              icon: Database,        label: 'MIS Manager',     group: 'configure' },
-  
-  // Govern
   { to: '/users',            icon: Users,           label: 'Users',           group: 'govern' },
   { to: '/tenants',          icon: Building2,       label: 'Tenants',         group: 'govern' },
   { to: '/marketplace',      icon: Store,           label: 'Marketplace',     group: 'govern' },
@@ -130,9 +115,7 @@ const MOOD_META: Record<string, { label: string; color: string; dot: string }> =
 function useBreadcrumbs() {
   const location = useLocation();
   const segments = location.pathname.split('/').filter(Boolean);
-  
   if (segments.length === 0) return [{ label: 'Dashboard', to: '/' }];
-  
   return [
     { label: 'Home', to: '/' },
     ...segments.map((seg, i) => {
@@ -145,7 +128,7 @@ function useBreadcrumbs() {
   ];
 }
 
-// ── Tooltip component ──────────────────────────────────────────────────────
+// ── Tooltip ────────────────────────────────────────────────────────────────
 
 function Tooltip({ children, content }: { children: React.ReactNode; content: string }) {
   return (
@@ -153,7 +136,6 @@ function Tooltip({ children, content }: { children: React.ReactNode; content: st
       {children}
       <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-xs font-medium text-brand-text shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 whitespace-nowrap z-50 pointer-events-none">
         {content}
-        <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 border-4 border-transparent border-r-brand-border" />
       </div>
     </div>
   );
@@ -168,9 +150,9 @@ export default function Layout() {
     personaMood, restEndpoint, masterToken, latencyHistory, pushLatency,
     startRealtimeSubscriptions, stopRealtimeSubscriptions,
     socketError, socketReconnectAttempts, socketTransport,
-    theme, toggleTheme, currentTenant, setCurrentTenant,
+    theme, toggleTheme,
     selectedWorkspaceId, setSelectedWorkspaceId,
-    stats, healthMatrix,
+    healthMatrix,
   } = useStore();
 
   const [isMobileMenuOpen,    setIsMobileMenuOpen]    = useState(false);
@@ -178,7 +160,6 @@ export default function Layout() {
   const [isFabOpen,           setIsFabOpen]           = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAdminMenuOpen,     setIsAdminMenuOpen]     = useState(false);
-  const [isTenantOpen,        setIsTenantOpen]        = useState(false);
   const [isWorkspaceOpen,     setIsWorkspaceOpen]     = useState(false);
   const [isSearchOpen,        setIsSearchOpen]        = useState(false);
   const [searchQuery,         setSearchQuery]         = useState('');
@@ -189,14 +170,19 @@ export default function Layout() {
   const location = useLocation();
   const breadcrumbs = useBreadcrumbs();
 
-  // Collapse sidebar on smaller screens by default
+  // ── isSidebarExpanded: true on mobile when menu open, or on desktop when not collapsed ──
+  const isSidebarExpanded = isMobileMenuOpen || !isCollapsed;
+
+  // Collapse sidebar on smaller screens by default (only when menu is not open)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1280px)');
-    setIsCollapsed(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsCollapsed(e.matches);
+    if (!isMobileMenuOpen) setIsCollapsed(mq.matches);
+    const handler = (e: MediaQueryListEvent) => {
+      if (!isMobileMenuOpen) setIsCollapsed(e.matches);
+    };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
-  }, []);
+  }, [isMobileMenuOpen]);
 
   // Apply theme
   useEffect(() => {
@@ -257,7 +243,7 @@ export default function Layout() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setIsSearchOpen(v => !v); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); setIsCollapsed(v => !v); }
       if ((e.ctrlKey || e.metaKey) && e.key === '`') { e.preventDefault(); toggleTerminal(); }
-      if (e.key === 'Escape') { setIsSearchOpen(false); setIsNotificationsOpen(false); setIsAdminMenuOpen(false); setIsTenantOpen(false); }
+      if (e.key === 'Escape') { setIsSearchOpen(false); setIsNotificationsOpen(false); setIsAdminMenuOpen(false); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -289,7 +275,6 @@ export default function Layout() {
 
   const unreadAlerts = guardianAlerts.filter(a => a.severity === 'CRITICAL').length;
   const criticalHealth = healthMatrix.filter(h => h.status === 'offline').length;
-  const degradedHealth = healthMatrix.filter(h => h.status === 'degraded').length;
 
   const searchResults = searchQuery.length > 1
     ? NAV_ITEMS.filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -606,7 +591,7 @@ export default function Layout() {
         
         {/* ── SIDEBAR ── */}
         <motion.nav
-          animate={{ width: isCollapsed ? 64 : 256 }}
+          animate={{ width: isMobileMenuOpen ? 256 : (isCollapsed ? 64 : 256) }}
           transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
           className={cn(
             'fixed lg:relative top-14 lg:top-0 left-0 h-[calc(100vh-3.5rem)] lg:h-full bg-brand-surface/80 backdrop-blur-xl border-r border-brand-border/50 z-40',
@@ -617,9 +602,9 @@ export default function Layout() {
           {/* Clock + Status */}
           <div className={cn(
             'px-3 py-3 border-b border-brand-border/50 flex items-center gap-2',
-            isCollapsed ? 'justify-center' : 'justify-between'
+            isSidebarExpanded ? 'justify-between' : 'justify-center'
           )}>
-            {!isCollapsed && (
+            {isSidebarExpanded && (
               <span className="text-[11px] font-mono text-brand-text-muted tabular-nums whitespace-nowrap">
                 {clockTime} UTC
               </span>
@@ -639,7 +624,7 @@ export default function Layout() {
               const items = NAV_ITEMS.filter(i => i.group === group.key);
               return (
                 <div key={group.key}>
-                  {!isCollapsed && (
+                  {isSidebarExpanded && (
                     <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-text-muted">
                       {group.label}
                     </p>
@@ -654,7 +639,7 @@ export default function Layout() {
                           onClick={() => { setIsMobileMenuOpen(false); vibrate(5); }}
                           className={({ isActive }) => cn(
                             'flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium group relative',
-                            isCollapsed && 'justify-center px-2',
+                            isCollapsed && !isMobileMenuOpen && 'justify-center px-2',
                             isActive
                               ? 'bg-brand-primary/10 text-brand-primary'
                               : 'text-brand-text-muted hover:bg-brand-elevated hover:text-brand-text'
@@ -663,7 +648,7 @@ export default function Layout() {
                           {({ isActive }) => (
                             <>
                               <item.icon className={cn('w-4 h-4 flex-shrink-0', isActive && 'text-brand-primary')} />
-                              {!isCollapsed && <span className="truncate">{item.label}</span>}
+                              {isSidebarExpanded && <span className="truncate">{item.label}</span>}
                               {isActive && (
                                 <motion.div
                                   layoutId="activeNav"
@@ -676,7 +661,7 @@ export default function Layout() {
                         </NavLink>
                       );
 
-                      if (isCollapsed) {
+                      if (!isSidebarExpanded) {
                         return (
                           <Tooltip key={item.to} content={item.label}>
                             {link}
@@ -693,7 +678,7 @@ export default function Layout() {
 
           {/* Bottom section */}
           <div className="p-2 border-t border-brand-border/50 space-y-1">
-            <div className={cn('flex items-center py-2', isCollapsed ? 'justify-center' : 'justify-center')}>
+            <div className="flex items-center justify-center py-2">
               <ConnectionOrb
                 socketConnected={socketConnected}
                 isUsingLiveBackendData={isUsingLiveBackendData}
@@ -706,11 +691,11 @@ export default function Layout() {
               onClick={handleLogout}
               className={cn(
                 'flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-brand-text-muted hover:text-brand-danger hover:bg-brand-danger/10 rounded-lg transition-colors',
-                isCollapsed && 'justify-center px-2'
+                !isSidebarExpanded && 'justify-center px-2'
               )}
             >
               <LogOut className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && <span>Sign Out</span>}
+              {isSidebarExpanded && <span>Sign Out</span>}
             </button>
           </div>
         </motion.nav>
