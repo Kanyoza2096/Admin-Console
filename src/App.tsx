@@ -7,38 +7,37 @@ import Layout from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SkeletonPage } from './components/Skeleton';
 
-// Route-level code splitting — each page is its own chunk loaded on demand.
-// This cuts initial bundle size significantly and gives Suspense a natural boundary.
-const Dashboard         = lazy(() => import('./pages/Dashboard'));
-const Posts             = lazy(() => import('./pages/Posts'));
-const ApiAnalytics      = lazy(() => import('./pages/ApiAnalytics'));
-const Guardian          = lazy(() => import('./pages/Guardian'));
-const Settings          = lazy(() => import('./pages/Settings'));
-const AIEngine          = lazy(() => import('./pages/AIEngine'));
-const PayloadInspector  = lazy(() => import('./pages/PayloadInspector'));
-const Workflows         = lazy(() => import('./pages/Workflows'));
+// All your lazy pages
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Posts = lazy(() => import('./pages/Posts'));
+const ApiAnalytics = lazy(() => import('./pages/ApiAnalytics'));
+const Guardian = lazy(() => import('./pages/Guardian'));
+const Settings = lazy(() => import('./pages/Settings'));
+const AIEngine = lazy(() => import('./pages/AIEngine'));
+const PayloadInspector = lazy(() => import('./pages/PayloadInspector'));
+const Workflows = lazy(() => import('./pages/Workflows'));
 const PrometheusMetrics = lazy(() => import('./pages/PrometheusMetrics'));
-const AIBrain           = lazy(() => import('./pages/AIBrain'));
-const KnowledgeBase     = lazy(() => import('./pages/KnowledgeBase'));
-const Integrations      = lazy(() => import('./pages/Integrations'));
-const MISManager        = lazy(() => import('./pages/MISManager'));
-const Messenger         = lazy(() => import('./pages/Messenger'));
-const Analytics         = lazy(() => import('./pages/Analytics'));
-const Scheduler         = lazy(() => import('./pages/Scheduler'));
-const Tasks             = lazy(() => import('./pages/Tasks'));
-const APIManager        = lazy(() => import('./pages/APIManager'));
-const Security          = lazy(() => import('./pages/Security'));
-const Users             = lazy(() => import('./pages/Users'));
-const AuditLogs         = lazy(() => import('./pages/AuditLogs'));
-const Marketplace       = lazy(() => import('./pages/Marketplace'));
-const Tenants           = lazy(() => import('./pages/Tenants'));
-const Monitoring        = lazy(() => import('./pages/Monitoring'));
-const AIChat            = lazy(() => import('./pages/AIChat'));
-const Brands            = lazy(() => import('./pages/Brands'));
-const AIProfiles        = lazy(() => import('./pages/AIProfiles'));
-const Features          = lazy(() => import('./pages/Features'));
-const SocialAccounts    = lazy(() => import('./pages/SocialAccounts'));
-const Notifications     = lazy(() => import('./pages/Notifications'));
+const AIBrain = lazy(() => import('./pages/AIBrain'));
+const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
+const Integrations = lazy(() => import('./pages/Integrations'));
+const MISManager = lazy(() => import('./pages/MISManager'));
+const Messenger = lazy(() => import('./pages/Messenger'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Scheduler = lazy(() => import('./pages/Scheduler'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const APIManager = lazy(() => import('./pages/APIManager'));
+const Security = lazy(() => import('./pages/Security'));
+const Users = lazy(() => import('./pages/Users'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const Tenants = lazy(() => import('./pages/Tenants'));
+const Monitoring = lazy(() => import('./pages/Monitoring'));
+const AIChat = lazy(() => import('./pages/AIChat'));
+const Brands = lazy(() => import('./pages/Brands'));
+const AIProfiles = lazy(() => import('./pages/AIProfiles'));
+const Features = lazy(() => import('./pages/Features'));
+const SocialAccounts = lazy(() => import('./pages/SocialAccounts'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const DataFlowVisualizer = lazy(() => import('./pages/DataFlowVisualizer'));
 const SystemArchitecture = lazy(() => import('./pages/SystemArchitecture'));
 const ServiceDetail = lazy(() => import('./pages/ServiceDetail'));
@@ -46,13 +45,6 @@ const IncidentCenter = lazy(() => import('./pages/IncidentCenter'));
 const LiveLogs = lazy(() => import('./pages/LiveLogs'));
 const WorkflowRuns = lazy(() => import('./pages/WorkflowRuns'));
 
-console.log('[Kanyoza Bootstrap] App.tsx module script loaded.');
-
-/**
- * Wraps each route in an ErrorBoundary + Suspense so that:
- *  - A crash in one page never takes down the whole shell
- *  - Skeleton placeholders show during lazy-load / data fetch
- */
 function Page({ name, children }: { name: string; children: ReactNode }) {
   return (
     <ErrorBoundary name={name}>
@@ -64,50 +56,21 @@ function Page({ name, children }: { name: string; children: ReactNode }) {
 }
 
 export default function App() {
-  console.log('[Kanyoza Bootstrap] Rendering <App /> component. Checking state...');
   const isAuthenticated = useStore(state => state.isAuthenticated);
-  const login  = useStore(state => state.login);
+  const login = useStore(state => state.login);
   const logout = useStore(state => state.logout);
 
   useEffect(() => {
-    console.log('[Kanyoza Bootstrap] App component mounted. Authenticated state:', isAuthenticated, 'Supabase configured:', isSupabaseConfigured());
-    
-    // Check local storage bypass first synchronously to avoid any async/network delays
     if (localStorage.getItem('kanyoza_authenticated') === 'true') {
-      console.log('[Kanyoza Bootstrap] Found active local session flag. Granting access.');
       login();
     }
 
     if (isSupabaseConfigured()) {
-      // Check for a real Supabase session in the background
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          console.log('[Kanyoza Bootstrap] Valid Supabase session verified.');
-          login();
-          localStorage.setItem('kanyoza_authenticated', 'true');
-        }
-      }).catch(err => {
-        console.warn('[Kanyoza Bootstrap] Failed to fetch Supabase session:', err);
-      });
-
-      // Synchronize with any future auth state changes, but only log out on explicit SIGNED_OUT events
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('[Kanyoza Bootstrap] Auth state changed event:', event, 'Session active:', !!session);
-        if (session) {
-          login();
-          localStorage.setItem('kanyoza_authenticated', 'true');
-        } else if (event === 'SIGNED_OUT') {
-          // Only wipe session and log out if we don't have an active developer/local storage bypass
-          if (localStorage.getItem('kanyoza_authenticated') !== 'true') {
-            console.log('[Kanyoza Bootstrap] Explicit SIGNED_OUT received. Wiping session.');
-            logout();
-          }
-        }
-      });
-
-      return () => subscription.unsubscribe();
+        if (session) login();
+      }).catch(console.warn);
     }
-  }, [login, logout]);
+  }, [login]);
 
   return (
     <BrowserRouter>
@@ -116,43 +79,43 @@ export default function App() {
           <Route path="*" element={<Login />} />
         ) : (
           <Route path="/" element={<Layout />}>
-            <Route index            element={<Page name="Dashboard">        <Dashboard />        </Page>} />
-            <Route path="ai-brain"  element={<Page name="AI Brain">         <AIBrain />          </Page>} />
-            <Route path="workflows" element={<Page name="Workflows">        <Workflows />        </Page>} />
-            <Route path="posts"     element={<Page name="Posts">            <Posts />            </Page>} />
-            <Route path="knowledge-base" element={<Page name="Knowledge Base"><KnowledgeBase />    </Page>} />
-            <Route path="integrations" element={<Page name="Integrations"><Integrations />        </Page>} />
-            <Route path="mis"       element={<Page name="MIS Manager">     <MISManager />        </Page>} />
-            <Route path="messenger" element={<Page name="Messenger">       <Messenger />        </Page>} />
-            <Route path="analytics" element={<Page name="Analytics">       <Analytics />        </Page>} />
-            <Route path="scheduler" element={<Page name="Scheduler">       <Scheduler />        </Page>} />
-            <Route path="tasks"     element={<Page name="Tasks">           <Tasks />            </Page>} />
-            <Route path="api-manager" element={<Page name="API Manager"> <APIManager />        </Page>} />
-            <Route path="security"  element={<Page name="Security">        <Security />         </Page>} />
-            <Route path="users"     element={<Page name="Users">           <Users />            </Page>} />
-            <Route path="audit-logs" element={<Page name="Audit Logs">    <AuditLogs />        </Page>} />
-            <Route path="marketplace" element={<Page name="Marketplace"> <Marketplace />        </Page>} />
-            <Route path="tenants"   element={<Page name="Tenants">         <Tenants />          </Page>} />
-            <Route path="brands"    element={<Page name="Brands">          <Brands />           </Page>} />
-            <Route path="ai-profiles" element={<Page name="AI Profiles"> <AIProfiles />        </Page>} />
-            <Route path="features"  element={<Page name="Features">        <Features />         </Page>} />
-            <Route path="monitoring" element={<Page name="Monitoring">    <Monitoring />        </Page>} />
-            <Route path="ai-chat"   element={<Page name="AI Chat">         <AIChat />          </Page>} />
-            <Route path="engine"    element={<Page name="AI Engine">        <AIEngine />         </Page>} />
-            <Route path="payloads"  element={<Page name="Payload Inspector"><PayloadInspector /> </Page>} />
-            <Route path="api"       element={<Page name="API Analytics">    <ApiAnalytics />     </Page>} />
-            <Route path="prometheus"element={<Page name="Prometheus">       <PrometheusMetrics /></Page>} />
+            <Route index element={<Page name="Dashboard"><Dashboard /></Page>} />
+            <Route path="ai-brain" element={<Page name="AI Brain"><AIBrain /></Page>} />
+            <Route path="workflows" element={<Page name="Workflows"><Workflows /></Page>} />
+            <Route path="posts" element={<Page name="Posts"><Posts /></Page>} />
+            <Route path="knowledge-base" element={<Page name="Knowledge Base"><KnowledgeBase /></Page>} />
+            <Route path="integrations" element={<Page name="Integrations"><Integrations /></Page>} />
+            <Route path="mis" element={<Page name="MIS Manager"><MISManager /></Page>} />
+            <Route path="messenger" element={<Page name="Messenger"><Messenger /></Page>} />
+            <Route path="analytics" element={<Page name="Analytics"><Analytics /></Page>} />
+            <Route path="scheduler" element={<Page name="Scheduler"><Scheduler /></Page>} />
+            <Route path="tasks" element={<Page name="Tasks"><Tasks /></Page>} />
+            <Route path="api-manager" element={<Page name="API Manager"><APIManager /></Page>} />
+            <Route path="security" element={<Page name="Security"><Security /></Page>} />
+            <Route path="users" element={<Page name="Users"><Users /></Page>} />
+            <Route path="audit-logs" element={<Page name="Audit Logs"><AuditLogs /></Page>} />
+            <Route path="marketplace" element={<Page name="Marketplace"><Marketplace /></Page>} />
+            <Route path="tenants" element={<Page name="Tenants"><Tenants /></Page>} />
+            <Route path="brands" element={<Page name="Brands"><Brands /></Page>} />
+            <Route path="ai-profiles" element={<Page name="AI Profiles"><AIProfiles /></Page>} />
+            <Route path="features" element={<Page name="Features"><Features /></Page>} />
+            <Route path="monitoring" element={<Page name="Monitoring"><Monitoring /></Page>} />
+            <Route path="ai-chat" element={<Page name="AI Chat"><AIChat /></Page>} />
+            <Route path="engine" element={<Page name="AI Engine"><AIEngine /></Page>} />
+            <Route path="payloads" element={<Page name="Payload Inspector"><PayloadInspector /></Page>} />
+            <Route path="api" element={<Page name="API Analytics"><ApiAnalytics /></Page>} />
+            <Route path="prometheus" element={<Page name="Prometheus"><PrometheusMetrics /></Page>} />
             <Route path="social-accounts" element={<Page name="Social Accounts"><SocialAccounts /></Page>} />
-            <Route path="guardian"  element={<Page name="Guardian">         <Guardian />         </Page>} />
-            <Route path="notifications" element={<Page name="Notifications"><Notifications />    </Page>} />
+            <Route path="guardian" element={<Page name="Guardian"><Guardian /></Page>} />
+            <Route path="notifications" element={<Page name="Notifications"><Notifications /></Page>} />
             <Route path="data-flow" element={<Page name="Data Flow"><DataFlowVisualizer /></Page>} />
             <Route path="system-architecture" element={<Page name="System Architecture"><SystemArchitecture /></Page>} />
             <Route path="services/:serviceId" element={<Page name="Service Detail"><ServiceDetail /></Page>} />
             <Route path="incident-center" element={<Page name="Incident Center"><IncidentCenter /></Page>} />
             <Route path="live-logs" element={<Page name="Live Logs"><LiveLogs /></Page>} />
             <Route path="workflow-runs" element={<Page name="Workflow Runs"><WorkflowRuns /></Page>} />
-            <Route path="settings"  element={<Page name="Settings"><Settings /></Page>} />
-            <Route path="*"         element={<Navigate to="/" replace />} />
+            <Route path="settings" element={<Page name="Settings"><Settings /></Page>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         )}
       </Routes>
