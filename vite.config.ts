@@ -11,6 +11,8 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        // Enable the generated SW in dev mode so hot-reload and caching are testable
+        devOptions: { enabled: true },
         includeAssets: ['icon.svg', 'icon.jpg', 'splash.jpg', 'apple-touch-icon.jpg', 'offline.html'],
 
         manifest: {
