@@ -5,10 +5,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore';
-import { 
-  Cpu, Zap, Activity, MessageCircle, Send, Globe, Server, Database, 
+import {
+  Cpu, Zap, Activity, MessageCircle, Send, Globe, Server, Database,
   Search, X, AlertTriangle, Maximize2, Minimize2, RotateCcw, Network,
-  Clock, Eye, EyeOff, Download
+  Eye, EyeOff,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -51,14 +51,13 @@ const NODE_LAYOUT: Omit<FlowNode, 'status'>[] = [
   { id: 'frontend',   label: 'Frontend',         icon: Globe,         x: 50,  y: 4 },
   { id: 'gemini',     label: 'Gemini AI',        icon: Cpu,           x: 50,  y: 16 },
   { id: 'pipeline',   label: 'Pipeline',         icon: Zap,           x: 50,  y: 28 },
-  { id: 'render',     label: 'Render Queue',     icon: Activity,      x: 82,  y: 28 },
+  { id: 'render',     label: 'Card Renderer',    icon: Activity,      x: 82,  y: 28 },
   { id: 'command',    label: 'Command Executor', icon: MessageCircle, x: 15,  y: 42 },
   { id: 'scheduler',  label: 'Scheduler',        icon: Send,          x: 50,  y: 42 },
-  { id: 'browser',    label: 'Browser Manager',  icon: Globe,         x: 82,  y: 42 },
   { id: 'connectors', label: 'Connectors',       icon: Server,        x: 50,  y: 56 },
-  { id: 'supabase',   label: 'Supabase',         icon: Database,      x: 30,  y: 72 },
-  { id: 'redis',      label: 'Redis',            icon: Database,      x: 70,  y: 72 },
-  { id: 'socketio',   label: 'Socket.IO',        icon: Activity,      x: 50,  y: 86 },
+  { id: 'supabase',   label: 'Supabase',         icon: Database,      x: 30,  y: 70 },
+  { id: 'redis',      label: 'Redis',            icon: Database,      x: 70,  y: 70 },
+  { id: 'socketio',   label: 'Socket.IO',        icon: Activity,      x: 50,  y: 82 },
   { id: 'facebook',   label: 'Facebook',         icon: Globe,         x: 15,  y: 56 },
 ];
 
@@ -72,8 +71,7 @@ const EDGES: [string, string][] = [
   ['gemini', 'pipeline'],
   ['pipeline', 'render'],
   ['pipeline', 'scheduler'],
-  ['render', 'browser'],
-  ['browser', 'connectors'],
+  ['render', 'connectors'],
   ['command', 'connectors'],
   ['scheduler', 'connectors'],
   ['facebook', 'connectors'],
@@ -85,17 +83,25 @@ const EDGES: [string, string][] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  online: '#22c55e', degraded: '#f59e0b', offline: '#ef4444', active: '#3b82f6', thinking: '#a855f7',
+  online: '#22c55e',
+  degraded: '#f59e0b',
+  offline: '#ef4444',
+  active: '#3b82f6',
+  thinking: '#a855f7',
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  online: 'Healthy', degraded: 'Degraded', offline: 'Down', active: 'Active', thinking: 'Generating',
+  online: 'Healthy',
+  degraded: 'Degraded',
+  offline: 'Down',
+  active: 'Active',
+  thinking: 'Generating',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function DataFlowVisualizer() {
-  const { socket, healthMatrix, stats } = useStore();
+  const { socket, healthMatrix } = useStore();
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [edges, setEdges] = useState<FlowEdge[]>([]);
   const [eventsPerSec, setEventsPerSec] = useState(0);
@@ -109,11 +115,14 @@ export default function DataFlowVisualizer() {
   const [showLabels, setShowLabels] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const packetIdRef = useRef(0);
+  const totalEventsRef = useRef(0);
 
   // Init
   useEffect(() => {
     setNodes(NODE_LAYOUT.map(n => ({ ...n, status: 'online' })));
-    setEdges(EDGES.map(([from, to]) => ({ from, to, packets: [], totalPackets: 0, errorPackets: 0, avgLatency: 0 })));
+    setEdges(EDGES.map(([from, to]) => ({
+      from, to, packets: [], totalPackets: 0, errorPackets: 0, avgLatency: 0,
+    })));
   }, []);
 
   // Health matrix → node status
@@ -123,17 +132,26 @@ export default function DataFlowVisualizer() {
       const match = healthMatrix.find(h => {
         const name = (h.name || '').toLowerCase();
         const id = node.id.toLowerCase();
-        return name.includes(id) || id.includes(name) ||
+        return (
+          name.includes(id) || id.includes(name) ||
           (id === 'gemini' && name.includes('gemini')) ||
-          (id === 'browser' && name.includes('browser')) ||
+          (id === 'render' && (name.includes('card') || name.includes('render'))) ||
           (id === 'connectors' && (name.includes('facebook') || name.includes('connector'))) ||
-          (id === 'render' && name.includes('playwright')) ||
-          (id === 'frontend' && name.includes('frontend'));
+          (id === 'frontend' && name.includes('frontend'))
+        );
       });
       if (!match) return node;
-      const newStatus = match.status === 'online' ? 'online' : match.status === 'degraded' ? 'degraded' : 'offline';
+      const newStatus =
+        match.status === 'online' ? 'online' :
+        match.status === 'degraded' ? 'degraded' : 'offline';
       if (node.status === 'offline' && newStatus === 'online') {
-        return { ...node, status: 'online' as const, failureReason: undefined, recoveredAt: Date.now(), latency: match.latency };
+        return {
+          ...node,
+          status: 'online' as const,
+          failureReason: undefined,
+          recoveredAt: Date.now(),
+          latency: match.latency,
+        };
       }
       return { ...node, status: newStatus as FlowNode['status'], latency: match.latency };
     }));
@@ -146,7 +164,6 @@ export default function DataFlowVisualizer() {
 
     const handleTraffic = (data: any) => {
       const { from_service, to_service, duration_ms, status, method, path, error } = data;
-      
       if (!from_service || !to_service) return;
 
       setEdges(prev => prev.map(edge => {
@@ -157,7 +174,6 @@ export default function DataFlowVisualizer() {
           const newAvgLatency = Math.round(
             (edge.avgLatency * edge.totalPackets + (duration_ms || 0)) / newTotal
           );
-
           return {
             ...edge,
             packets: [...edge.packets.slice(-12), {
@@ -177,11 +193,11 @@ export default function DataFlowVisualizer() {
         return edge;
       }));
 
+      totalEventsRef.current += 1;
       setTotalEvents(p => p + 1);
       if (isError) setFailureEvents(p => p + 1);
     };
 
-    // Real traffic from middleware
     socket.on('traffic_packet', handleTraffic);
 
     // Legacy events as fallback
@@ -196,6 +212,7 @@ export default function DataFlowVisualizer() {
           totalPackets: edge.totalPackets + 1,
         } : edge
       ));
+      totalEventsRef.current += 1;
       setTotalEvents(p => p + 1);
       if (isError) setFailureEvents(p => p + 1);
     };
@@ -215,12 +232,12 @@ export default function DataFlowVisualizer() {
       })));
     }, 30);
 
-    // Throughput calculation
-    let lastTotal = totalEvents;
+    // Throughput calculation — uses ref to avoid stale closure
+    let lastTotal = 0;
     const epsInterval = setInterval(() => {
-      setEventsPerSec(prev => {
-        const diff = totalEvents - lastTotal;
-        lastTotal = totalEvents;
+      setEventsPerSec(() => {
+        const diff = totalEventsRef.current - lastTotal;
+        lastTotal = totalEventsRef.current;
         return Math.max(0, diff);
       });
     }, 1000);
@@ -234,7 +251,7 @@ export default function DataFlowVisualizer() {
       clearInterval(packetInterval);
       clearInterval(epsInterval);
     };
-  }, [socket, totalEvents]);
+  }, [socket]);
 
   // Search
   useEffect(() => {
@@ -255,7 +272,6 @@ export default function DataFlowVisualizer() {
   const totalTraffic = edges.reduce((s, e) => s + e.totalPackets, 0);
   const systemHealthy = offlineCount === 0;
 
-  // Scroll to zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     setScale(prev => Math.min(2.5, Math.max(0.4, prev - e.deltaY * 0.001)));
@@ -268,7 +284,7 @@ export default function DataFlowVisualizer() {
       "flex flex-col gap-3",
       isFullscreen ? "fixed inset-0 z-50 bg-brand-bg/95 backdrop-blur-sm p-4" : "w-full"
     )}>
-      
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
@@ -321,11 +337,14 @@ export default function DataFlowVisualizer() {
 
       {/* Topology canvas */}
       <div ref={containerRef} onWheel={handleWheel}
-        className="relative flex-1 bg-brand-surface/30 border border-brand-border/50 rounded-2xl overflow-hidden min-h-[400px]"
-        style={{ cursor: scale > 1 ? 'grab' : 'default' }}>
+        className="relative flex-1 bg-brand-surface/30 border border-brand-border/50 rounded-2xl overflow-hidden"
+        style={{ cursor: scale > 1 ? 'grab' : 'default', minHeight: '520px' }}>
 
         {/* Dot grid */}
-        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, #6366f1 1px, transparent 1px)', backgroundSize: '24px 24px', opacity: 0.04 }} />
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle, #6366f1 1px, transparent 1px)',
+          backgroundSize: '24px 24px', opacity: 0.04,
+        }} />
 
         {/* Search */}
         <div className="absolute top-3 right-3 z-30">
@@ -345,13 +364,21 @@ export default function DataFlowVisualizer() {
         {/* Failure glow */}
         {!systemHealthy && (
           <motion.div className="absolute inset-0 pointer-events-none"
-            animate={{ boxShadow: ['inset 0 0 0px rgba(239,68,68,0)', 'inset 0 0 40px rgba(239,68,68,0.06)', 'inset 0 0 0px rgba(239,68,68,0)'] }}
+            animate={{ boxShadow: [
+              'inset 0 0 0px rgba(239,68,68,0)',
+              'inset 0 0 40px rgba(239,68,68,0.06)',
+              'inset 0 0 0px rgba(239,68,68,0)',
+            ]}}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} />
         )}
 
         {/* Wrapper — SVG + Nodes scaled together */}
-        <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}>
-          
+        <div className="absolute inset-0" style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center',
+          paddingBottom: '36px',
+        }}>
+
           {/* SVG Edges */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
             <defs>
@@ -374,11 +401,9 @@ export default function DataFlowVisualizer() {
 
               return (
                 <g key={`${edge.from}-${edge.to}`}>
-                  {/* Edge line */}
                   <line x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y}
                     stroke={strokeColor} strokeWidth={strokeW} opacity={opacity} strokeLinecap="round" />
 
-                  {/* Traffic packets */}
                   {edge.packets.map(p => (
                     <motion.circle key={p.id}
                       r={p.isError ? 3 : 2}
@@ -390,7 +415,6 @@ export default function DataFlowVisualizer() {
                     />
                   ))}
 
-                  {/* Traffic volume label */}
                   {hasTraffic && (
                     <g transform={`translate(${(fn.x + tn.x) / 2}, ${(fn.y + tn.y) / 2 - 2})`}>
                       <rect x={-22} y={-8} width={44} height={14} rx={7} fill="#18181b" stroke="#27272a" strokeWidth="0.5" />
@@ -424,26 +448,30 @@ export default function DataFlowVisualizer() {
                   transition: 'opacity 0.3s',
                 }}
                 animate={{
-                  scale: status === 'active' || status === 'thinking' ? [1, 1.05, 1] : status === 'offline' ? [1, 0.97, 1] : 1,
+                  scale: status === 'active' || status === 'thinking' ? [1, 1.05, 1] :
+                         status === 'offline' ? [1, 0.97, 1] : 1,
                 }}
-                transition={{ duration: status === 'thinking' ? 0.6 : 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{
+                  duration: status === 'thinking' ? 0.6 : 1.5,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
                 onClick={() => { setSearchQuery(node.label); setHighlightedNode(node.id); }}>
 
-                {/* Status ripple */}
                 {status === 'offline' && (
                   <motion.div className="absolute inset-0 rounded-full" style={{ border: `2px solid ${color}` }}
-                    animate={{ scale: [1, 1.5], opacity: [0.8, 0] }} transition={{ duration: 2.5, repeat: Infinity }} />
+                    animate={{ scale: [1, 1.5], opacity: [0.8, 0] }}
+                    transition={{ duration: 2.5, repeat: Infinity }} />
                 )}
 
-                {/* Highlight ring — only on searched node */}
                 {isHighlighted && (
                   <motion.div className="absolute -inset-2 rounded-full" style={{ border: '2px solid #f59e0b' }}
-                    animate={{ scale: [1, 1.15, 1], opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+                    animate={{ scale: [1, 1.15, 1], opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }} />
                 )}
 
-                {/* Icon */}
                 <motion.div
                   className="p-2.5 rounded-xl cursor-pointer transition-all relative"
                   style={{
@@ -462,17 +490,17 @@ export default function DataFlowVisualizer() {
                   )}
                 </motion.div>
 
-                {/* Label */}
                 {showLabels && (
                   <span className="text-[8px] font-mono font-bold uppercase text-brand-text-muted text-center leading-tight max-w-[65px]">
                     {node.label}
                   </span>
                 )}
 
-                {/* Status dot */}
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}60` }} />
+                <div className="w-1.5 h-1.5 rounded-full" style={{
+                  backgroundColor: color,
+                  boxShadow: `0 0 4px ${color}60`,
+                }} />
 
-                {/* Hover tooltip */}
                 <AnimatePresence>
                   {isHovered && (
                     <motion.div
@@ -486,13 +514,19 @@ export default function DataFlowVisualizer() {
                         <p className="text-[10px] font-mono" style={{ color }}>{STATUS_LABELS[status]}</p>
                       </div>
                       {node.latency !== undefined && (
-                        <p className="text-[10px] text-brand-text-muted mt-1 font-mono">Latency: <span className="text-brand-primary font-bold">{node.latency}ms</span></p>
+                        <p className="text-[10px] text-brand-text-muted mt-1 font-mono">
+                          Latency: <span className="text-brand-primary font-bold">{node.latency}ms</span>
+                        </p>
                       )}
                       {nodeTraffic > 0 && (
-                        <p className="text-[10px] text-brand-text-muted font-mono">Traffic: <span className="text-emerald-400 font-bold">{nodeTraffic} req</span></p>
+                        <p className="text-[10px] text-brand-text-muted font-mono">
+                          Traffic: <span className="text-emerald-400 font-bold">{nodeTraffic} req</span>
+                        </p>
                       )}
                       {node.failureReason && (
-                        <p className="text-[9px] text-red-400 mt-1 max-w-[180px] whitespace-normal leading-relaxed">{node.failureReason}</p>
+                        <p className="text-[9px] text-red-400 mt-1 max-w-[180px] whitespace-normal leading-relaxed">
+                          {node.failureReason}
+                        </p>
                       )}
                     </motion.div>
                   )}
@@ -502,18 +536,33 @@ export default function DataFlowVisualizer() {
           })}
         </div>
 
-        {/* Stats bar */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-brand-surface/95 backdrop-blur-xl border border-brand-border/50 rounded-xl px-3.5 py-2 text-[10px] font-mono z-30">
+        {/* Stats bar — fixed at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-brand-surface/95 backdrop-blur-xl border-t border-brand-border/50 px-3.5 py-2 text-[10px] font-mono z-30">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5"><Activity className="w-3 h-3 text-brand-primary" /><span className="text-brand-text-muted">Throughput:</span><span className="text-brand-primary font-bold">{eventsPerSec}/s</span></span>
-            <span className="flex items-center gap-1.5"><Zap className="w-3 h-3 text-emerald-400" /><span className="text-brand-text-muted">Total:</span><span className="text-emerald-400 font-bold">{totalTraffic.toLocaleString()}</span></span>
+            <span className="flex items-center gap-1.5">
+              <Activity className="w-3 h-3 text-brand-primary" />
+              <span className="text-brand-text-muted">Throughput:</span>
+              <span className="text-brand-primary font-bold">{eventsPerSec}/s</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3 h-3 text-emerald-400" />
+              <span className="text-brand-text-muted">Total:</span>
+              <span className="text-emerald-400 font-bold">{totalTraffic.toLocaleString()}</span>
+            </span>
             {failureEvents > 0 && (
-              <span className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3 text-red-400" /><span className="text-red-400 font-bold">{failureEvents}</span></span>
+              <span className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3 h-3 text-red-400" />
+                <span className="text-red-400 font-bold">{failureEvents}</span>
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: systemHealthy ? '#22c55e' : '#ef4444' }} />
-            <span className="text-brand-text-muted uppercase text-[9px]">{systemHealthy ? 'Operational' : `${offlineCount} down`}</span>
+            <span className="w-1.5 h-1.5 rounded-full" style={{
+              backgroundColor: systemHealthy ? '#22c55e' : '#ef4444',
+            }} />
+            <span className="text-brand-text-muted uppercase text-[9px]">
+              {systemHealthy ? 'Operational' : `${offlineCount} down`}
+            </span>
           </div>
         </div>
       </div>
