@@ -6,9 +6,9 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Dark mode (default) */
-  --color-brand-bg: #0A0E17;
-  --color-brand-surface: #141A2E;
-  --color-brand-elevated: #1C2541;
+  --color-brand-bg: #080C14;
+  --color-brand-surface: #0F1629;
+  --color-brand-elevated: #182040;
   --color-brand-primary: #4F46E5;
   --color-brand-accent: #06B6D4;
 
@@ -19,13 +19,13 @@
   --color-brand-text: #F1F5F9;
   --color-brand-text-secondary: #94A3B8;
   --color-brand-text-muted: #64748B;
-  --color-brand-border: #1E293B;
+  --color-brand-border: #1E2942;
 
-  --shadow-glow-primary: 0 0 20px rgba(79, 70, 229, 0.4);
-  --shadow-glow-accent: 0 0 20px rgba(6, 182, 212, 0.4);
-  --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.4);
-  --shadow-glow-danger: 0 0 20px rgba(239, 68, 68, 0.4);
-  --shadow-glow-warning: 0 0 20px rgba(245, 158, 11, 0.4);
+  --shadow-glow-primary: 0 0 24px rgba(79, 70, 229, 0.35);
+  --shadow-glow-accent:  0 0 24px rgba(6, 182, 212, 0.35);
+  --shadow-glow-success: 0 0 24px rgba(16, 185, 129, 0.35);
+  --shadow-glow-danger:  0 0 24px rgba(239, 68, 68, 0.35);
+  --shadow-glow-warning: 0 0 24px rgba(245, 158, 11, 0.35);
 }
 
 /* Light mode overrides */
@@ -45,143 +45,74 @@
   --color-brand-text-muted: #94A3B8;
   --color-brand-border: #E2E8F0;
 
-  --shadow-glow-primary: 0 0 20px rgba(79, 70, 229, 0.2);
-  --shadow-glow-accent: 0 0 20px rgba(8, 145, 178, 0.2);
-  --shadow-glow-success: 0 0 20px rgba(5, 150, 105, 0.2);
-  --shadow-glow-danger: 0 0 20px rgba(220, 38, 38, 0.2);
-  --shadow-glow-warning: 0 0 20px rgba(217, 119, 6, 0.2);
+  --shadow-glow-primary: 0 0 20px rgba(79, 70, 229, 0.18);
+  --shadow-glow-accent:  0 0 20px rgba(8, 145, 178, 0.18);
+  --shadow-glow-success: 0 0 20px rgba(5, 150, 105, 0.18);
+  --shadow-glow-danger:  0 0 20px rgba(220, 38, 38, 0.18);
+  --shadow-glow-warning: 0 0 20px rgba(217, 119, 6, 0.18);
 }
 
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
 @layer base {
-  body {
-    @apply bg-brand-bg text-brand-text font-sans antialiased;
+  html {
+    /* Prevent layout shifts from scrollbar appearing/disappearing */
+    scrollbar-gutter: stable;
   }
 
-  /* Accessibility: visible focus ring */
+  body {
+    @apply bg-brand-bg text-brand-text font-sans antialiased;
+    /* Smooth sub-pixel font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Accessible focus ring */
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-primary rounded;
   }
 }
 
-/* Branded text selection */
+/* ── Text selection ───────────────────────────────────────────────────────── */
 ::selection {
   background-color: rgba(79, 70, 229, 0.3);
   color: #F1F5F9;
 }
 
-/* Status glows */
-.status-live {
-  box-shadow: 0 0 15px #10B981;
-}
-.status-warning {
-  box-shadow: 0 0 15px #F59E0B;
-}
+/* ── Status glows ─────────────────────────────────────────────────────────── */
+.status-live    { box-shadow: 0 0 15px #10B981; }
+.status-warning { box-shadow: 0 0 15px #F59E0B; }
 .status-danger,
-.status-offline {
-  box-shadow: 0 0 15px #EF4444;
-}
+.status-offline { box-shadow: 0 0 15px #EF4444; }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-brand-bg;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-brand-elevated rounded-full;
+/* ── Custom Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  {
+  background: rgba(79, 70, 229, 0.25);
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-brand-border;
+  background: rgba(79, 70, 229, 0.45);
 }
 
-/* Skeleton loader animation */
+/* ── Skeleton loader ──────────────────────────────────────────────────────── */
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.4; }
 }
 .skeleton-pulse {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CHROME GPU RENDERING FIXES
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Reduce blur intensity on Chromium */
-@media screen and (-webkit-min-device-pixel-ratio: 1) {
-  .backdrop-blur-xl {
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-  }
-  .backdrop-blur-lg {
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
-  }
-  .backdrop-blur-md,
-  .backdrop-blur-sm {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-}
-
-/* Disable blur entirely on mobile */
-@media (max-width: 768px) {
-  .backdrop-blur-xl,
-  .backdrop-blur-lg,
-  .backdrop-blur-md,
-  .backdrop-blur-sm {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background-color: rgba(9, 9, 11, 0.97) !important;
-  }
-}
-
-/* Force GPU acceleration for animated elements */
-.animate-spin,
-.animate-pulse,
-.animate-bounce,
-[class*="motion-"],
-canvas {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: transform;
-}
-
-/* Reduce paint complexity for Chromium */
-@media screen and (-webkit-min-device-pixel-ratio: 1) {
-  * {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-  }
-
-  .animate-pulse {
-    box-shadow: none !important;
-  }
-}
-
-/* Limit canvas particles on Chrome */
-@supports (-webkit-appearance: none) and (not (-moz-appearance: none)) {
-  canvas {
-    opacity: 0.5 !important;
-  }
-
-  @media (max-width: 1280px) {
-    [class*="motion-"] {
-      animation-duration: 0s !important;
-      transition-duration: 0s !important;
-    }
-  }
-}
-
-/* Smooth scrolling for overflow containers */
+/* ── Smooth touch scrolling ───────────────────────────────────────────────── */
 .overflow-y-auto,
 .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Respect user's system motion preference */
+/* ── Respect reduced-motion preference ───────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -189,5 +120,58 @@ canvas {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHROME / WEBKIT RENDERING — TARGETED (not blanket * rules)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⚠️  DO NOT apply backface-visibility:hidden or will-change:transform to
+   the `*` selector. On mobile Chrome this causes the GPU compositor to
+   create a new stacking context for every element, which manifests as
+   ghost/duplicated UI elements in the paint output.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* GPU-accelerate only genuinely animated elements */
+.animate-spin,
+.animate-pulse,
+.animate-bounce,
+canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Reduce backdrop blur on mobile to avoid GPU overload.
+   Solid surface colours are used instead — NOT the broken rgba override. */
+@media (max-width: 768px) {
+  /* Sidebar + header surfaces get an opaque solid bg so they read cleanly */
+  nav.backdrop-blur-xl,
+  header.backdrop-blur-xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: var(--color-brand-surface) !important;
+  }
+
+  /* Generic utility — reduce blur intensity instead of removing it */
+  .backdrop-blur-xl {
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+  }
+  .backdrop-blur-lg {
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+  }
+  .backdrop-blur-md,
+  .backdrop-blur-sm {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* Reduce canvas particle opacity on Chrome/Safari — saves GPU bandwidth */
+@supports (-webkit-appearance: none) {
+  canvas {
+    opacity: 0.45 !important;
   }
 }

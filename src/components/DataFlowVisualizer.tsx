@@ -166,9 +166,10 @@ export default function DataFlowVisualizer() {
       const { from_service, to_service, duration_ms, status, method, path, error } = data;
       if (!from_service || !to_service) return;
 
+      const isError = (status && status >= 400) || !!error;
+
       setEdges(prev => prev.map(edge => {
         if (edge.from === from_service && edge.to === to_service) {
-          const isError = (status && status >= 400) || !!error;
           const newTotal = edge.totalPackets + 1;
           const newErrors = edge.errorPackets + (isError ? 1 : 0);
           const newAvgLatency = Math.round(

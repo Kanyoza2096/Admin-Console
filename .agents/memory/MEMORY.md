@@ -1,0 +1,1 @@
+- [Chrome UI ghost/duplication fix](chrome-rendering-fix.md) — blanket `* { backface-visibility: hidden }` on Chrome causes GPU layer ghosting; never re-add it
